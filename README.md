@@ -5,6 +5,41 @@
 SeaTunnel 是一个高性能、分布式的数据集成平台，支持实时和批量数据同步。本指南将帮助您快速完成 SeaTunnel 的 Zeta 集群安装部署。
 Flink/Spark 模式请自行适配。
 
+## 快速部署
+
+### 1. 配置SSH免密登录
+```bash
+# 在所有节点间配置SSH免密登录
+ssh-keygen -t rsa  # 如果已经有密钥对，可以跳过
+ssh-copy-id user@node1
+ssh-copy-id user@node2
+# ... 对所有节点执行
+```
+
+### 2. 配置节点IP
+只需修改config.properties中的以下部分：
+```properties
+# ==== 分离模式 ====
+# Master节点IP
+MASTER_IP=192.168.1.100,192.168.1.101
+# Worker节点IP
+WORKER_IPS=192.168.1.102,192.168.1.103,192.168.1.104
+
+# ==== 或者使用混合模式 ====
+# 所有节点IP
+CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
+```
+
+### 3. 执行安装
+```bash
+./install_seatunnel.sh
+```
+
+> 💡 提示：
+> - 默认已包含常用连接器(jdbc,hive)
+> - 其他配置项使用默认值，可按需调整
+> - 详细配置说明请继续往下阅读
+
 ## 目录
 
 - [✨ 功能特性](#-功能特性)
@@ -216,30 +251,12 @@ WORKER_PORT=5802
 
 ## 📂 插件管理
 
-### 快速配置
-
-```properties
-# ==== 最小配置 ====
-INSTALL_CONNECTORS=true
-CONNECTORS=jdbc,hive
-
-# ==== 自定义配置 ====
-jdbc_libs=(
-    "mysql:mysql-connector-java:8.0.27"
-    "org.postgresql:postgresql:42.4.3"
-)
-```
-
 ### 高级配置
 
 <details>
 <summary>点击展开完整配置示例</summary>
 
 ```properties
-# ==== 下载源配置 ====
-MAVEN_REPO=aliyun
-# CUSTOM_MAVEN_REPO=https://your-repo.com
-
 # ==== 连接器配置 ====
 CONNECTORS=jdbc,hive
 
@@ -264,15 +281,7 @@ hive_libs=(
 ENABLE_AUTO_START=true
 ```
 
-### 服务管理
 
-| 操作 | 命令 |
-|------|------|
-| 启动 | `sudo systemctl start seatunnel` |
-| 停止 | `sudo systemctl stop seatunnel` |
-| 重启 | `sudo systemctl restart seatunnel` |
-| 状态 | `sudo systemctl status seatunnel` |
-| 禁用 | `sudo systemctl disable seatunnel` |
 
 ## ❓ 常见问题
 
