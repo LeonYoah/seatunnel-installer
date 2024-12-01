@@ -40,6 +40,14 @@ wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties
 chmod +x install_seatunnel.sh
 ```
 
+> 💡 提示：
+> - 默认安装目录为 `/data/seatunnel`
+> - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
+> ```properties
+> # 修改为你想要的安装目录
+> BASE_DIR=/your/custom/path/seatunnel
+> ```
+
 ### 2. 配置SSH免密登录
 ```bash
 # 在所有节点间配置SSH免密登录
@@ -49,7 +57,7 @@ ssh-copy-id user@node2
 # ... 对所有节点执行
 ```
 
-### 3. 配置节点IP
+### 3. 配置节点IP（默认是localhost）
 只需修改config.properties中的以下部分：
 ```properties
 # ==== 分离模式 ====
@@ -72,6 +80,40 @@ CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
 > - 默认已包含常用连接器(jdbc,hive)
 > - 其他配置项使用默认值，可按需调整
 > - 详细配置说明请继续往下阅读
+
+### ⚠️ 重要提醒：分布式部署必读
+如果您正在部署分布式集群（多节点部署），请务必配置分布式存储作为checkpoint存储，否则将影响以下功能：
+- 流式处理连接器（如：Kafka）无法正常运行
+- 批处理连接器（如：Hive、HDFS File）无法正常运行
+
+推荐配置以下任一存储：
+```properties
+# ==== 在config.properties中配置 ====
+
+# 方式1：配置HDFS（推荐）
+CHECKPOINT_STORAGE_TYPE=HDFS
+CHECKPOINT_NAMESPACE=/seatunnel/checkpoint
+HDFS_NAMENODE_HOST=hdfs-namenode-host
+HDFS_NAMENODE_PORT=8020
+
+# 方式2：配置OSS
+CHECKPOINT_STORAGE_TYPE=OSS
+CHECKPOINT_NAMESPACE=/seatunnel/checkpoint
+STORAGE_ENDPOINT=http://oss-cn-hangzhou.aliyuncs.com
+STORAGE_ACCESS_KEY=your_access_key
+STORAGE_SECRET_KEY=your_secret_key
+STORAGE_BUCKET=your_bucket
+
+# 方式3：配置S3
+CHECKPOINT_STORAGE_TYPE=S3
+CHECKPOINT_NAMESPACE=/seatunnel/checkpoint
+STORAGE_ENDPOINT=http://s3.amazonaws.com
+STORAGE_ACCESS_KEY=your_access_key
+STORAGE_SECRET_KEY=your_secret_key
+STORAGE_BUCKET=your_bucket
+```
+
+> ⚠️ 注意：默认的LOCAL_FILE存储模式只适用于单节点测试环境，不建议在生产环境使用。
 
 ## ✨ 功能特性
 
