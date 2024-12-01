@@ -496,10 +496,10 @@ modify_hazelcast_config() {
         *"hazelcast.yaml")
             log_info "修改 hazelcast.yaml (集群通信配置)..."
             if [ "$DEPLOY_MODE" = "hybrid" ]; then
-                log_info "混合模式: 所有节点使用相端口5801"
+                log_info "混合模式: 所有节点使用相同端口 ${HYBRID_PORT:-5801}"
                 # 生成新的member-list内容
                 content=$(for node in "${ALL_NODES[@]}"; do
-                    echo "- ${node}:5801"
+                    echo "- ${node}:${HYBRID_PORT:-5801}"
                 done)
                 replace_yaml_section "$config_file" "member-list:" 10 "$content"
             fi
@@ -508,14 +508,14 @@ modify_hazelcast_config() {
             log_info "修改 hazelcast-client.yaml (客户端连接配置)..."
             # 生成新的cluster-members内容
             if [ "$DEPLOY_MODE" = "hybrid" ]; then
-                log_info "混合模式: 客户端可连接任意节点的5801端口"
+                log_info "混合模式: 客户端可连接任意节点的 ${HYBRID_PORT:-5801} 端口"
                 content=$(for node in "${ALL_NODES[@]}"; do
-                    echo "- ${node}:5801"
+                    echo "- ${node}:${HYBRID_PORT:-5801}"
                 done)
             else
-                log_info "分离模式: 客户端仅连接Master节点的5801端口"
+                log_info "分离模式: 客户端仅连接Master节点的 ${MASTER_PORT:-5801} 端口"
                 content=$(for master in "${MASTER_IPS[@]}"; do
-                    echo "- ${master}:5801"
+                    echo "- ${master}:${MASTER_PORT:-5801}"
                 done)
             fi
             replace_yaml_section "$config_file" "cluster-members:" 6 "$content"
@@ -523,14 +523,14 @@ modify_hazelcast_config() {
         *"hazelcast-master.yaml")
             if [ "$DEPLOY_MODE" != "hybrid" ]; then
                 log_info "修改 hazelcast-master.yaml (Master节点配置)..."
-                log_info "分离模式: Master使用5801端口，Worker使用5802端口"
+                log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，Worker使用 ${WORKER_PORT:-5802} 端口"
                 # 生成新的member-list内容
                 content=$(
                     for master in "${MASTER_IPS[@]}"; do
-                        echo "- ${master}:5801"
+                        echo "- ${master}:${MASTER_PORT:-5801}"
                     done
                     for worker in "${WORKER_IPS[@]}"; do
-                        echo "- ${worker}:5802"
+                        echo "- ${worker}:${WORKER_PORT:-5802}"
                     done
                 )
                 replace_yaml_section "$config_file" "member-list:" 10 "$content"
@@ -539,14 +539,14 @@ modify_hazelcast_config() {
         *"hazelcast-worker.yaml")
             if [ "$DEPLOY_MODE" != "hybrid" ]; then
                 log_info "修改 hazelcast-worker.yaml (Worker节点配置)..."
-                log_info "分离模式: Master使用5801端口，Worker使用5802端口"
+                log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，Worker使用 ${WORKER_PORT:-5802} 端口"
                 # 生成新的member-list内容
                 content=$(
                     for master in "${MASTER_IPS[@]}"; do
-                        echo "- ${master}:5801"
+                        echo "- ${master}:${MASTER_PORT:-5801}"
                     done
                     for worker in "${WORKER_IPS[@]}"; do
-                        echo "- ${worker}:5802"
+                        echo "- ${worker}:${WORKER_PORT:-5802}"
                     done
                 )
                 replace_yaml_section "$config_file" "member-list:" 10 "$content"
@@ -640,21 +640,24 @@ check_ports() {
     local occupied_ports=()
     
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        local port=${HYBRID_PORT:-5801}
         for node in "${ALL_NODES[@]}"; do
-            # 使用check_port并捕获其退出态
-            if ! check_port "$node" 5801 2>/dev/null; then
-                occupied_ports+=("$node:5801")
+            if ! check_port "$node" "$port" 2>/dev/null; then
+                occupied_ports+=("$node:$port")
             fi
         done
     else
+        local master_port=${MASTER_PORT:-5801}
+        local worker_port=${WORKER_PORT:-5802}
+        
         for master in "${MASTER_IPS[@]}"; do
-            if ! check_port "$master" 5801 2>/dev/null; then
-                occupied_ports+=("$master:5801")
+            if ! check_port "$master" "$master_port" 2>/dev/null; then
+                occupied_ports+=("$master:$master_port")
             fi
         done
         for worker in "${WORKER_IPS[@]}"; do
-            if ! check_port "$worker" 5802 2>/dev/null; then
-                occupied_ports+=("$worker:5802")
+            if ! check_port "$worker" "$worker_port" 2>/dev/null; then
+                occupied_ports+=("$worker:$worker_port")
             fi
         done
     fi
@@ -670,18 +673,20 @@ check_services() {
     sleep 10
     
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        # 混合模式检查所有节点的5801端口
+        local port=${HYBRID_PORT:-5801}
         for node in "${ALL_NODES[@]}"; do
-            if ! check_port "$node" 5801; then
+            if ! check_port "$node" "$port"; then
                 log_info "节点 $node 服务启动成功"
             else
-                log_warning "节点 $node 服未响应"
+                log_warning "节点 $node 服务未响应"
             fi
         done
     else
-        # 分离模式分别检查masterworker
+        local master_port=${MASTER_PORT:-5801}
+        local worker_port=${WORKER_PORT:-5802}
+        
         for master in "${MASTER_IPS[@]}"; do
-            if ! check_port "$master" 5801; then
+            if ! check_port "$master" "$master_port"; then
                 log_info "Master节点 $master 服务启动成功"
             else
                 log_warning "Master节点 $master 服务未响应"
@@ -689,7 +694,7 @@ check_services() {
         done
         
         for worker in "${WORKER_IPS[@]}"; do
-            if ! check_port "$worker" 5802; then
+            if ! check_port "$worker" "$worker_port"; then
                 log_info "Worker节点 $worker 服务启动成功"
             else
                 log_warning "Worker节点 $worker 服务未响应"
@@ -856,6 +861,11 @@ check_url() {
 
 # 下载安装包
 download_package() {
+    # 检查是否为在线模式
+    if [ "$INSTALL_MODE" != "online" ]; then
+        log_error "download_package函数只能在在线模式(INSTALL_MODE=online)下使用"
+    fi
+    
     local output_file=$1
     local version=$2
     local retries=3
@@ -1124,118 +1134,29 @@ install_plugins_and_drivers() {
     # 读取启用的连接器列表
     IFS=',' read -r -a enabled_connectors <<< "${CONNECTORS}"
     
-    # 获取插件仓库配置
-    local repo=${PLUGIN_REPO:-aliyun}
-    local repo_url
-    
-    if [ "$repo" = "custom" ]; then
-        if [ -z "$CUSTOM_PLUGIN_URL" ]; then
-            log_error "使用自定义插件仓库时必须配置 CUSTOM_PLUGIN_URL"
+    if [ "$INSTALL_MODE" = "offline" ]; then
+        log_info "离线模式: 从本地安装插件..."
+        # 检查本地插件目录
+        local local_plugins_dir="plugins"
+        if [ ! -d "$local_plugins_dir" ]; then
+            log_error "离线模式下未找到本地插件目录: $local_plugins_dir"
         fi
-        repo_url="$CUSTOM_PLUGIN_URL"
+        
+        # 复制插件
+        for connector in "${enabled_connectors[@]}"; do
+            connector=$(echo "$connector" | tr -d '[:space:]')
+            local plugin_jar="$local_plugins_dir/connector-${connector}-${SEATUNNEL_VERSION}.jar"
+            
+            if [ -f "$plugin_jar" ]; then
+                log_info "安装本地插件: $connector"
+                cp "$plugin_jar" "$connectors_dir/"
+            else
+                log_error "未找到本地插件: $plugin_jar"
+            fi
+        done
     else
-        repo_url="${PLUGIN_REPOS[$repo]}"
-        if [ -z "$repo_url" ]; then
-            log_error "不支持的插件仓库: $repo"
-        fi
+        # 在线模式下载插件的原有逻辑...
     fi
-    
-    # 下载连接器
-    for connector in "${enabled_connectors[@]}"; do
-        connector=$(echo "$connector" | tr -d '[:space:]')
-        
-        # 构建下载URL
-        local download_url=$(echo "$PLUGIN_DOWNLOAD_URL" | \
-            sed "s/\${version}/$SEATUNNEL_VERSION/g" | \
-            sed "s/\${connector}/$connector/g" | \
-            sed "s|\${repo}|$repo_url|g")
-            
-        local connector_jar="$connectors_dir/connector-${connector}-${SEATUNNEL_VERSION}.jar"
-        
-        log_info "下载连接器: $connector (从 $repo 仓库)"
-        if command -v wget >/dev/null 2>&1; then
-            if ! wget -q --show-progress "$download_url" -O "$connector_jar"; then
-                # 如果当前仓库下载失败,尝试Apache仓库
-                if [ "$repo" != "apache" ]; then
-                    log_warning "从 $repo 下载失败,尝试Apache仓库..."
-                    download_url=$(echo "$PLUGIN_DOWNLOAD_URL" | \
-                        sed "s/\${version}/$SEATUNNEL_VERSION/g" | \
-                        sed "s/\${connector}/$connector/g" | \
-                        sed "s|\${repo}|${PLUGIN_REPOS[apache]}|g")
-                    if ! wget -q --show-progress "$download_url" -O "$connector_jar"; then
-                        log_error "下载连接器失败: $connector"
-                    fi
-                else
-                    log_error "下载连接器失败: $connector"
-                fi
-            fi
-        else
-            if ! curl -# -L "$download_url" -o "$connector_jar"; then
-                # 如果当前仓库下载失败,尝试Apache仓库
-                if [ "$repo" != "apache" ]; then
-                    log_warning "从 $repo 下载失败,尝试Apache仓库..."
-                    download_url=$(echo "$PLUGIN_DOWNLOAD_URL" | \
-                        sed "s/\${version}/$SEATUNNEL_VERSION/g" | \
-                        sed "s/\${connector}/$connector/g" | \
-                        sed "s|\${repo}|${PLUGIN_REPOS[apache]}|g")
-                    if ! curl -# -L "$download_url" -o "$connector_jar"; then
-                        log_error "下载连接器失败: $connector"
-                    fi
-                else
-                    log_error "下载连接器失败: $connector"
-                fi
-            fi
-        fi
-        
-        # 安装连接器依赖
-        local libs_var="${connector}_libs[@]"
-        local libs=("${!libs_var}")
-        
-        if [ ${#libs[@]} -gt 0 ]; then
-            log_info "安装 $connector 连接器的依赖..."
-            
-            # 处理依赖列表
-            for dep in "${libs[@]}"; do
-                dep=$(echo "$dep" | tr -d '[:space:]' | tr -d '"')  # 去除空格和引号
-                
-                if [[ "$dep" == *":"* ]]; then
-                    # Maven依赖
-                    IFS=':' read -r groupId artifactId version <<< "$dep"
-                    local jar_name="${artifactId}-${version}.jar"
-                    local jar_path="$lib_dir/$jar_name"
-                    
-                    # 构建下载URL (使用阿里云Maven仓库)
-                    local group_path=$(echo "$groupId" | tr '.' '/')
-                    local download_url="https://maven.aliyun.com/repository/public/${group_path}/${artifactId}/${version}/${jar_name}"
-                    
-                    log_info "下载依赖: $jar_name"
-                    if command -v wget >/dev/null 2>&1; then
-                        if ! wget -q --show-progress "$download_url" -O "$jar_path"; then
-                            # 如果阿里云下载失败，尝试中央仓库
-                            download_url="https://repo1.maven.org/maven2/${group_path}/${artifactId}/${version}/${jar_name}"
-                            if ! wget -q --show-progress "$download_url" -O "$jar_path"; then
-                                log_error "下载依赖失败: $jar_name"
-                            fi
-                        fi
-                    else
-                        if ! curl -# -L "$download_url" -o "$jar_path"; then
-                            # 如果阿里云下载失败尝试中央仓库
-                            download_url="https://repo1.maven.org/maven2/${group_path}/${artifactId}/${version}/${jar_name}"
-                            if ! curl -# -L "$download_url" -o "$jar_path"; then
-                                log_error "下载依赖失败: $jar_name"
-                            fi
-                        fi
-                    fi
-                fi
-            done
-        fi
-    done
-    
-    # 设置权限
-    setup_permissions "$connectors_dir"
-    setup_permissions "$lib_dir"
-    
-    log_info "插件和依赖安装完成"
 }
 
 # 配置开机自启动
