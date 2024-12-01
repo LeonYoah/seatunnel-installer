@@ -5,17 +5,19 @@
 SeaTunnel 是一个高性能、分布式的数据集成平台，支持实时和批量数据同步。本指南将帮助您快速完成 SeaTunnel 的 Zeta 集群安装部署。
 Flink/Spark 模式请自行适配。
 
-## 📑 目录
+## 目录
 
-- [功能特性](#-功能特性)
-- [快速开始](#-快速开始)
-- [环境要求](#-环境要求)
-- [部署模式](#-部署模式)
-- [插件管理](#-插件管理)
-- [开机自启动](#-开机自启动)
-- [常见问题](#-常见问题)
-- [获取帮助](#-获取帮助)
-- [端口配置说明](#-端口配置说明)
+- [✨ 功能特性](#-功能特性)
+- [📦 快速开始](#-快速开始)
+- [⚙️ 配置说明](#️-配置说明)
+- [🔄 启动命令](#-启动命令)
+- [🔌 端口配置](#-端口配置)
+- [🔧 部署模式](#-部署模式)
+- [📂 插件管理](#-插件管理)
+- [🚀 开机自启动](#-开机自启动)
+- [❓ 常见问题](#-常见问题)
+- [💡 获取帮助](#-获取帮助)
+- [🤝 贡献](#-贡献)
 
 ## ✨ 功能特性
 
@@ -74,7 +76,7 @@ Flink/Spark 模式请自行适配。
 - ✅ 完整的安装检查
 - 📚 丰富的使用文档
 
-## 🚀 快速开始
+## 📦 快速开始
 
 ### 一键安装
 
@@ -113,7 +115,90 @@ INSTALL_USER=root           # 安装用户
 INSTALL_GROUP=root          # 安装用户组
 ```
 
-### 部署模式
+## 🔄 启动命令
+
+### 手动启动
+
+#### 混合模式 (Hybrid)/分离模式 (Separated)
+```bash
+# 启动集群
+${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh start
+
+
+# 停止集群
+${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh stop
+
+# 启动/停止/重启集群
+${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
+```
+
+### 使用Systemd服务
+
+##### 混合模式
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start seatunnel` |
+| 停止服务 | `sudo systemctl stop seatunnel` |
+| 重启服务 | `sudo systemctl restart seatunnel` |
+| 查看状态 | `sudo systemctl status seatunnel` |
+| 启用自启动 | `sudo systemctl enable seatunnel` |
+| 禁用自启动 | `sudo systemctl disable seatunnel` |
+
+##### 分离模式 - Master节点
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start seatunnel-master` |
+| 停止服务 | `sudo systemctl stop seatunnel-master` |
+| 重启服务 | `sudo systemctl restart seatunnel-master` |
+| 查看状态 | `sudo systemctl status seatunnel-master` |
+| 启用自启动 | `sudo systemctl enable seatunnel-master` |
+| 禁用自启动 | `sudo systemctl disable seatunnel-master` |
+
+##### 分离模式 - Worker节点
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start seatunnel-worker` |
+| 停止服务 | `sudo systemctl stop seatunnel-worker` |
+| 重启服务 | `sudo systemctl restart seatunnel-worker` |
+| 查看状态 | `sudo systemctl status seatunnel-worker` |
+| 启用自启动 | `sudo systemctl enable seatunnel-worker` |
+| 禁用自启动 | `sudo systemctl disable seatunnel-worker` |
+
+> 💡 提示：
+> - 服务管理需要sudo权限
+> - 服务配置文件位于 `/etc/systemd/system/` 目录
+> - 修改配置后需要重新加载：`sudo systemctl daemon-reload`
+> - 查看日志：`sudo journalctl -u seatunnel[-master/-worker]`
+
+## 🔌 端口配置
+
+SeaTunnel安装器支持两种部署模式的端口配置：
+
+### 混合模式端口配置
+在混合模式下，所有节点使用相同的端口：
+- 默认服务端口：5801
+- 配置示例：
+```properties
+HYBRID_PORT=5801
+```
+
+### 分离模式端口配置
+在分离模式下，Master和Worker节点使用不同的端口：
+- Master节点默认端口：5801
+- Worker节点默认端口：5802
+- 配置示例：
+```properties
+MASTER_PORT=5801
+WORKER_PORT=5802
+```
+
+### 端口配置注意事项
+1. 确保配置的端口未被其他服务占用
+2. 如果使用防火墙，需要开放相应端口
+3. 集群内所有节点的端口配置必须一致
+4. 可以在config.properties中自定义端口，如未配置将使用默认值
+
+## 🔧 部署模式
 
 #### 混合模式 (Hybrid)
 > 适合小规模部署，配置简单
@@ -129,7 +214,7 @@ INSTALL_GROUP=root          # 安装用户组
 - ✅ 更好的扩展性
 - ✅ 资源利用更合理
 
-## 🔌 插件管理
+## 📂 插件管理
 
 ### 快速配置
 
@@ -156,7 +241,7 @@ MAVEN_REPO=aliyun
 # CUSTOM_MAVEN_REPO=https://your-repo.com
 
 # ==== 连接器配置 ====
-CONNECTORS=jdbc,kafka,elasticsearch
+CONNECTORS=jdbc,hive
 
 # JDBC依赖
 jdbc_libs=(
@@ -164,19 +249,19 @@ jdbc_libs=(
     "org.postgresql:postgresql:42.4.3"
 )
 
-# Kafka依赖
-kafka_libs=(
-    "org.apache.kafka:kafka-clients:3.2.3"
+# hive依赖
+hive_libs=(
+    "org.apache.hive:hive-exec:3.1.3"
+    "org.apache.hive:hive-service:3.1.3"
 )
 ```
 </details>
 
-## 🔄 开机自启动
+## 🚀 开机自启动
 
 ### 基础配置
 ```properties
 ENABLE_AUTO_START=true
-AUTO_START_DELAY=60
 ```
 
 ### 服务管理
@@ -218,7 +303,7 @@ AUTO_START_DELAY=60
 - 查看系统日志
 </details>
 
-## 🆘 获取帮助
+## 💡 获取帮助
 
 - 📖 [官方文档](https://seatunnel.apache.org/docs)
 - 🐛 [问题反馈](https://github.com/apache/seatunnel/issues)
@@ -233,86 +318,3 @@ AUTO_START_DELAY=60
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request来帮助改进这个安装器！
-
-## 端口配置说明
-
-SeaTunnel安装器支持两种部署模式的端口配置：
-
-### 混合模式端口配置
-在混合模式下，所有节点使用相同的端口：
-- 默认服务端口：5801
-- 配置示例：
-```properties
-HYBRID_PORT=5801
-```
-
-### 分离模式端口配置
-在分离模式下，Master和Worker节点使用不同的端口：
-- Master节点默认端口：5801
-- Worker节点默认端口：5802
-- 配置示例：
-```properties
-MASTER_PORT=5801
-WORKER_PORT=5802
-```
-
-### 端口配置注意事项
-1. 确保配置的端口未被其他服务占用
-2. 如果使用防火墙，需要开放相应端口
-3. 集群内所有节点的端口配置必须一致
-4. 可以在config.properties中自定义端口，如未配置将使用默认值
-
-## 🔄 启动命令
-
-#### 手动启动
-
-##### 混合模式 (Hybrid)/分离模式 (Separated)
-```bash
-# 启动所有节点
-${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh start
-
-# 停止所有节点
-${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh stop
-
-# 重启所有节点
-${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
-```
-
-
-#### Systemd服务管理
-
-##### 混合模式
-| 操作 | 命令 |
-|------|------|
-| 启动服务 | `sudo systemctl start seatunnel` |
-| 停止服务 | `sudo systemctl stop seatunnel` |
-| 重启服务 | `sudo systemctl restart seatunnel` |
-| 查看状态 | `sudo systemctl status seatunnel` |
-| 启用自启动 | `sudo systemctl enable seatunnel` |
-| 禁用自启动 | `sudo systemctl disable seatunnel` |
-
-##### 分离模式 - Master节点
-| 操作 | 命令 |
-|------|------|
-| 启动服务 | `sudo systemctl start seatunnel-master` |
-| 停止服务 | `sudo systemctl stop seatunnel-master` |
-| 重启服务 | `sudo systemctl restart seatunnel-master` |
-| 查看状态 | `sudo systemctl status seatunnel-master` |
-| 启用自启动 | `sudo systemctl enable seatunnel-master` |
-| 禁用自启动 | `sudo systemctl disable seatunnel-master` |
-
-##### 分离模式 - Worker节点
-| 操作 | 命令 |
-|------|------|
-| 启动服务 | `sudo systemctl start seatunnel-worker` |
-| 停止服务 | `sudo systemctl stop seatunnel-worker` |
-| 重启服务 | `sudo systemctl restart seatunnel-worker` |
-| 查看状态 | `sudo systemctl status seatunnel-worker` |
-| 启用自启动 | `sudo systemctl enable seatunnel-worker` |
-| 禁用自启动 | `sudo systemctl disable seatunnel-worker` |
-
-> 💡 提示：
-> - 服务管理需要sudo权限
-> - 服务配置文件位于 `/etc/systemd/system/` 目录
-> - 修改配置后需要重新加载：`sudo systemctl daemon-reload`
-> - 查看日志：`sudo journalctl -u seatunnel[-master/-worker]`
