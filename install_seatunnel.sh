@@ -1405,35 +1405,44 @@ export PATH=\$PATH:\$SEATUNNEL_HOME/bin
     log_info "配置检查点存储..."
     configure_checkpoint
 
+    # 检查是否为分布式部署且使用本地存储
+    if [ "$DEPLOY_MODE" != "hybrid" ] && [ "$CHECKPOINT_STORAGE_TYPE" = "LOCAL_FILE" ]; then
+        log_warning "检测到分布式部署模式下使用本地文件作为checkpoint存储!"
+        log_warning "这可能会导致:"
+        log_warning "1. 流式处理连接器(如Kafka)无法正常运行"
+        log_warning "2. 批处理连接器(如Hive、HDFS File)无法正常运行"
+        log_warning "建议配置分布式存储(HDFS/OSS/S3)作为checkpoint存储，详见配置文件说明"
+    fi
+
     # 添加安装完成后的验证提示
-    echo -e "\n\${GREEN}SeaTunnel安装完成!\$NC"
-    echo -e "\n\${YELLOW}验证和使用说明:${NC}"
+    echo -e "\n${GREEN}SeaTunnel安装完成!${NC}"
+    echo -e "\n${YELLOW}验证和使用说明:${NC}"
     echo "1. 刷新环境变量:"
-    echo -e "\${GREEN}source \$USER_HOME/.bashrc\$NC"
+    echo -e "${GREEN}source \$USER_HOME/.bashrc${NC}"
     
     echo -e "\n2. 集群管理命令:"
-    echo -e "启动集群:  \${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start\$NC"
-    echo -e "停止集群:  \${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh stop\$NC"
-    echo -e "重启集群:  \${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh restart\$NC"
+    echo -e "启动集群:  ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start${NC}"
+    echo -e "停止集群:  ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh stop${NC}"
+    echo -e "重启集群:  ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh restart${NC}"
     
     echo -e "\n3. 验证安装:"
-    echo -e "运行示例任务: \${GREEN}\$SEATUNNEL_HOME/bin/seatunnel.sh --config config/v2.batch.config.template\$NC"
+    echo -e "运行示例任务: ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel.sh --config config/v2.batch.config.template${NC}"
     
-    echo -e "\n\${YELLOW}部信息:${NC}"
-    if [ "\$DEPLOY_MODE" = "hybrid" ]; then
+    echo -e "\n${YELLOW}部信息:${NC}"
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
         echo "部署模式: 混合模式"
-        echo -e "集群节: \${GREEN}\${CLUSTER_NODES[*]}\$NC"
+        echo -e "集群节: ${GREEN}\${CLUSTER_NODES[*]}${NC}"
     else
         echo "部署模式: 分离模式"
-        echo -e "Master节点: \${GREEN}\${MASTER_IPS[*]}\$NC"
-        echo -e "Worker节点: \${GREEN}\${WORKER_IPS[*]}\$NC"
+        echo -e "Master节点: ${GREEN}\${MASTER_IPS[*]}${NC}"
+        echo -e "Worker节点: ${GREEN}\${WORKER_IPS[*]}${NC}"
     fi
     
-    echo -e "\n\${YELLOW}注意事项:${NC}"
+    echo -e "\n${YELLOW}注意事项:${NC}"
     echo "1. 首次启动集群前，请确保所有节点的环境变量已经生效"
     echo "2. 建议先执行 start 命令启动集群，验证所有节点是否正常启动"
     echo "3. 如果需要停止集群，请使用 stop 命令，确保所有进程正常关闭"
-    echo -e "4. 更多使用说明请参考：\${GREEN}https://seatunnel.apache.org/docs\$NC"
+    echo -e "4. 更多使用说明请参考：${GREEN}https://seatunnel.apache.org/docs${NC}"
 
     # 配置开机自启动
     setup_auto_start
