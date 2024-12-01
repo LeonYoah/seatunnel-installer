@@ -232,3 +232,58 @@ AUTO_START_DELAY=60
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request来帮助改进这个安装器！
+
+### 启动命令
+
+#### 手动启动
+
+##### 混合模式 (Hybrid)/分离模式 (Separated)
+```bash
+# 启动所有节点
+${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh start
+
+# 停止所有节点
+${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh stop
+
+# 重启所有节点
+${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
+```
+
+
+#### Systemd服务管理
+
+##### 混合模式
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start seatunnel` |
+| 停止服务 | `sudo systemctl stop seatunnel` |
+| 重启服务 | `sudo systemctl restart seatunnel` |
+| 查看状态 | `sudo systemctl status seatunnel` |
+| 启用自启动 | `sudo systemctl enable seatunnel` |
+| 禁用自启动 | `sudo systemctl disable seatunnel` |
+
+##### 分离模式 - Master节点
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start seatunnel-master` |
+| 停止服务 | `sudo systemctl stop seatunnel-master` |
+| 重启服务 | `sudo systemctl restart seatunnel-master` |
+| 查看状态 | `sudo systemctl status seatunnel-master` |
+| 启用自启动 | `sudo systemctl enable seatunnel-master` |
+| 禁用自启动 | `sudo systemctl disable seatunnel-master` |
+
+##### 分离模式 - Worker节点
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `sudo systemctl start seatunnel-worker` |
+| 停止服务 | `sudo systemctl stop seatunnel-worker` |
+| 重启服务 | `sudo systemctl restart seatunnel-worker` |
+| 查看状态 | `sudo systemctl status seatunnel-worker` |
+| 启用自启动 | `sudo systemctl enable seatunnel-worker` |
+| 禁用自启动 | `sudo systemctl disable seatunnel-worker` |
+
+> 💡 提示：
+> - 服务管理需要sudo权限
+> - 服务配置文件位于 `/etc/systemd/system/` 目录
+> - 修改配置后需要重新加载：`sudo systemctl daemon-reload`
+> - 查看日志：`sudo journalctl -u seatunnel[-master/-worker]`
