@@ -710,8 +710,9 @@ configure_checkpoint() {
     
     # Validate storage type
     if [[ -z "$CHECKPOINT_STORAGE_TYPE" ]]; then
-        log_error "检查点存储类型未配置"
-    fi
+        log_info "未配置检查点存储类型，使用默认配置"
+        CHECKPOINT_STORAGE_TYPE="LOCAL_FILE"
+    }
 
     # Validate required variables based on storage type
     case "$CHECKPOINT_STORAGE_TYPE" in
@@ -1408,10 +1409,10 @@ export PATH=\$PATH:\$SEATUNNEL_HOME/bin
     # 检查是否为分布式部署且使用本地存储
     if [ "$DEPLOY_MODE" != "hybrid" ] && [ "$CHECKPOINT_STORAGE_TYPE" = "LOCAL_FILE" ]; then
         log_warning "检测到分布式部署模式下使用本地文件作为checkpoint存储!"
-        log_warning "这可能会导致:"
-        log_warning "1. 流式处理连接器(如Kafka)无法正常运行"
-        log_warning "2. 批处理连接器(如Hive、HDFS File)无法正常运行"
-        log_warning "建议配置分布式存储(HDFS/OSS/S3)作为checkpoint存储，详见配置文件说明"
+        log_warning "注意：这种配置仅适用于以下场景："
+        log_warning "1. 运行批处理任务（checkpoint非必须）"
+        log_warning "2. 单机测试环境"
+        log_warning "如果您在生产环境运行流式任务，建议配置分布式存储(HDFS/OSS/S3)作为checkpoint存储，详见配置文件说明"
     fi
 
     # 添加安装完成后的验证提示
