@@ -63,6 +63,24 @@ CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
 ./install_seatunnel.sh
 ```
 
+### 5. 卸载 SeaTunnel
+如需卸载 SeaTunnel，请执行以下命令：
+```bash
+# 下载卸载脚本 ，注意！！改脚本需要配合config.properties使用
+cd ~/seatunnel-installer
+wget https://github.com/LeonYoah/seatunnel-installer/raw/main/uninstall_seatunnel.sh
+chmod +x uninstall_seatunnel.sh
+
+# 执行卸载
+./uninstall_seatunnel.sh
+```
+
+> ⚠️ 注意：
+> - 卸载操作将停止所有 SeaTunnel 服务
+> - 删除安装目录及所有相关文件
+> - 移除系统服务配置
+> - 清理环境变量设置
+
 > 💡 提示：
 > - 默认已包含常用连接器(jdbc,hive)
 > - 其他配置项使用默认值，可按需调整
@@ -443,4 +461,3 @@ SSH_TIMEOUT=10
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request来帮助改进这个安装器！
-
