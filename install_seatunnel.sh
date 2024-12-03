@@ -3,6 +3,10 @@
 # 确保遇到错误时立即退出
 set -e
 
+# 日志文件路径
+LOG_DIR="./seatunnel-install-log-${INSTALL_USER:-$(whoami)}"
+LOG_FILE="$LOG_DIR/install.log"
+
 # 颜色输出函数
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -21,11 +25,29 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
     exit 1
 }
+log_success() {
+  echo -e "${GREEN}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
+}
 
 # 最大重试次数
 MAX_RETRIES=3
 # SSH超时时间(秒)
 SSH_TIMEOUT=10
+
+# 安装包仓库地址映射
+declare -A PACKAGE_REPOS=(
+    ["apache"]="https://archive.apache.org/dist/seatunnel"
+    ["aliyun"]="https://mirrors.aliyun.com/apache/seatunnel"
+    ["huaweicloud"]="https://mirrors.huaweicloud.com/apache/seatunnel"
+)
+
+# 插件仓库地址映射
+declare -A PLUGIN_REPOS=(
+    ["apache"]="https://repo1.maven.org/maven2"
+    ["aliyun"]="https://maven.aliyun.com/repository/public"
+    ["huaweicloud"]="https://repo.huaweicloud.com/repository/maven"
+)
+
 
 # 添加错误处理函数
 handle_error() {
@@ -45,21 +67,10 @@ cleanup() {
     # 清理临时文件
     cleanup_temp_files
     
-    # 如果安装失败，清理部分安装的文件
+    # 如果安装失败,提示用户
     if [ $exit_code -ne 0 ]; then
-        log_warning "检测到安装失败，清理部分安装的文件..."
-        if [ -d "$SEATUNNEL_HOME" ]; then
-            log_info "除安装目录: $SEATUNNEL_HOME"
-            sudo rm -rf "$SEATUNNEL_HOME"
-        fi
-        
-        # 清理远程节点上的文件
-        if [ -n "${WORKER_IPS[*]}" ]; then
-            for node in "${WORKER_IPS[@]}"; do
-                log_info "清理节点 $node 上的文件..."
-                ssh_with_retry "$node" "sudo rm -rf $SEATUNNEL_HOME"
-            done
-        fi
+        log_warning "安装失败。如果需要重新安装,请手动删除安装目录: $SEATUNNEL_HOME"
+        log_warning "删除命令: sudo rm -rf $SEATUNNEL_HOME"
     fi
     
     exit $exit_code
@@ -106,16 +117,41 @@ scp_with_retry() {
         return 1
     fi
     
+    # 检查源文件/目录是否存在
+    if [ ! -e "$src" ]; then
+        log_error "源文件/目录不存在: $src"
+        return 1
+    fi
+    
+    # 测试SSH连接
+    if ! timeout $SSH_TIMEOUT ssh -p $SSH_PORT -o ConnectTimeout=5 "${INSTALL_USER}@${host}" "echo >/dev/null" 2>/dev/null; then
+        log_error "SSH连接失败: ${INSTALL_USER}@${host}"
+        return 1
+    fi
+    
     while [ $retries -lt $MAX_RETRIES ]; do
-        if timeout $SSH_TIMEOUT scp -P $SSH_PORT "$src" "${INSTALL_USER}@${host}:$dest" 2>/dev/null; then
+        log_info "正在分发到 ${host}..."
+        
+        # 使用-q参数静默输出，仅显示错误
+        if timeout $SSH_TIMEOUT scp -q -r -P $SSH_PORT "$src" "${INSTALL_USER}@${host}:$dest" 2>/dev/null; then
+            log_info "成功分发到 ${host}"
             return 0
+        else
+            local exit_code=$?
+            # 检查目标主机磁盘空间
+            local disk_space
+            disk_space=$(ssh -p $SSH_PORT "${INSTALL_USER}@${host}" "df -h $dest" 2>/dev/null | tail -n1 | awk '{print $4}')
+            log_warning "分发失败，目标目录可用空间: ${disk_space:-未知}"
         fi
+        
         retries=$((retries + 1))
-        log_warning "SCP到 ${INSTALL_USER}@${host} 失败，重试 $retries/$MAX_RETRIES..."
-        sleep 2
+        if [ $retries -lt $MAX_RETRIES ]; then
+            log_warning "分发到 ${host} 失败，重试 $retries/$MAX_RETRIES..."
+            sleep 2
+        fi
     done
     
-    log_error "SCP到 ${INSTALL_USER}@${host} 失败，已重试 $MAX_RETRIES 次"
+    log_error "分发到 ${host} 失败，已重试 $MAX_RETRIES 次"
     return 1
 }
 
@@ -199,14 +235,12 @@ read_config() {
         ALL_NODES=("${MASTER_IPS[@]}" "${WORKER_IPS[@]}")
     fi
     
-    # 置SEATUNNEL_HOME
-    SEATUNNEL_HOME="$BASE_DIR/seatunnel-$SEATUNNEL_VERSION"
+    # 设置SEATUNNEL_HOME
+    SEATUNNEL_HOME="$BASE_DIR/apache-seatunnel-$SEATUNNEL_VERSION"
     
     # 验证必要的配置
     [[ -z "$SEATUNNEL_VERSION" ]] && log_error "SEATUNNEL_VERSION 未配置"
     [[ -z "$BASE_DIR" ]] && log_error "BASE_DIR 未配置"
-    [[ -z "$MASTER_IPS_STRING" ]] && log_error "MASTER_IP 未配置"
-    [[ -z "$WORKER_IPS_STRING" ]] && log_error "WORKER_IPS 未配置"
     
     # 添加用户配置验证
     [[ -z "$INSTALL_USER" ]] && log_error "INSTALL_USER 未配置"
@@ -249,11 +283,86 @@ read_config() {
             PACKAGE_PATH="$(cd "$(dirname "$0")" && pwd)/$PACKAGE_PATH"
         fi
     else
-        # 读取可选的下载URL
-        DOWNLOAD_URL=$(grep "^DOWNLOAD_URL=" "$config_file" | cut -d'=' -f2)
-        if [[ -z "$DOWNLOAD_URL" ]]; then
-            DOWNLOAD_URL="https://archive.apache.org/dist/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz"
+        # 读取安装包仓库配置
+        PACKAGE_REPO=$(grep "^PACKAGE_REPO=" "$config_file" | cut -d'=' -f2)
+        PACKAGE_REPO=${PACKAGE_REPO:-aliyun}  # 默认使用aliyun源
+        
+        # 验证仓库配置
+        if [[ "$PACKAGE_REPO" == "custom" ]]; then
+            CUSTOM_PACKAGE_URL=$(grep "^CUSTOM_PACKAGE_URL=" "$config_file" | cut -d'=' -f2)
+            [[ -z "$CUSTOM_PACKAGE_URL" ]] && log_error "使用自定义仓库(PACKAGE_REPO=custom)时必须配置 CUSTOM_PACKAGE_URL"
+        else
+            [[ -z "${PACKAGE_REPOS[$PACKAGE_REPO]}" ]] && log_error "不支持的安装包仓库: $PACKAGE_REPO"
         fi
+    fi
+
+    # 读取连接器配置
+    INSTALL_CONNECTORS=$(grep "^INSTALL_CONNECTORS=" "$config_file" | cut -d'=' -f2)
+    INSTALL_CONNECTORS=${INSTALL_CONNECTORS:-true}  # 默认安装
+
+    if [ "$INSTALL_CONNECTORS" = "true" ]; then
+        CONNECTORS=$(grep "^CONNECTORS=" "$config_file" | cut -d'=' -f2)
+        PLUGIN_REPO=$(grep "^PLUGIN_REPO=" "$config_file" | cut -d'=' -f2)
+        PLUGIN_REPO=${PLUGIN_REPO:-aliyun}  # 默认使用aliyun
+    fi
+    
+    # 读取检查点存储配置
+    CHECKPOINT_STORAGE_TYPE=$(grep "^CHECKPOINT_STORAGE_TYPE=" "$config_file" | cut -d'=' -f2)
+    CHECKPOINT_NAMESPACE=$(grep "^CHECKPOINT_NAMESPACE=" "$config_file" | cut -d'=' -f2)
+    
+    # 根据存储类型读取相应配置
+    case "$CHECKPOINT_STORAGE_TYPE" in
+        "HDFS")
+            HDFS_NAMENODE_HOST=$(grep "^HDFS_NAMENODE_HOST=" "$config_file" | cut -d'=' -f2)
+            HDFS_NAMENODE_PORT=$(grep "^HDFS_NAMENODE_PORT=" "$config_file" | cut -d'=' -f2)
+            [[ -z "$HDFS_NAMENODE_HOST" ]] && log_error "HDFS模式下必须配置 HDFS_NAMENODE_HOST"
+            [[ -z "$HDFS_NAMENODE_PORT" ]] && log_error "HDFS模式下必须配置 HDFS_NAMENODE_PORT"
+            ;;
+        "OSS"|"S3")
+            STORAGE_ENDPOINT=$(grep "^STORAGE_ENDPOINT=" "$config_file" | cut -d'=' -f2)
+            STORAGE_ACCESS_KEY=$(grep "^STORAGE_ACCESS_KEY=" "$config_file" | cut -d'=' -f2)
+            STORAGE_SECRET_KEY=$(grep "^STORAGE_SECRET_KEY=" "$config_file" | cut -d'=' -f2)
+            STORAGE_BUCKET=$(grep "^STORAGE_BUCKET=" "$config_file" | cut -d'=' -f2)
+            [[ -z "$STORAGE_ENDPOINT" ]] && log_error "${CHECKPOINT_STORAGE_TYPE}模式下必须配置 STORAGE_ENDPOINT"
+            [[ -z "$STORAGE_ACCESS_KEY" ]] && log_error "${CHECKPOINT_STORAGE_TYPE}模式下必须配置 STORAGE_ACCESS_KEY"
+            [[ -z "$STORAGE_SECRET_KEY" ]] && log_error "${CHECKPOINT_STORAGE_TYPE}模式下必须配置 STORAGE_SECRET_KEY"
+            [[ -z "$STORAGE_BUCKET" ]] && log_error "${CHECKPOINT_STORAGE_TYPE}模式下必须配置 STORAGE_BUCKET"
+            ;;
+        "LOCAL_FILE")
+            # 本地文件模式下使用默认路径
+            CHECKPOINT_NAMESPACE="$SEATUNNEL_HOME/checkpoint"
+            ;;
+        "")
+            log_error "必须配置 CHECKPOINT_STORAGE_TYPE"
+            ;;
+        *)
+            log_error "不支持的检查点存储类型: $CHECKPOINT_STORAGE_TYPE"
+            ;;
+    esac
+
+    # 读取开机自启动配置
+    ENABLE_AUTO_START=$(grep "^ENABLE_AUTO_START=" "$config_file" | cut -d'=' -f2)
+    ENABLE_AUTO_START=${ENABLE_AUTO_START:-true}  
+
+    # 读取连接器配置
+    INSTALL_CONNECTORS=$(grep "^INSTALL_CONNECTORS=" "$config_file" | cut -d'=' -f2)
+    INSTALL_CONNECTORS=${INSTALL_CONNECTORS:-true}  # 默认安装
+    
+    if [ "$INSTALL_CONNECTORS" = "true" ]; then
+        CONNECTORS=$(grep "^CONNECTORS=" "$config_file" | cut -d'=' -f2)
+        PLUGIN_REPO=$(grep "^PLUGIN_REPO=" "$config_file" | cut -d'=' -f2)
+        PLUGIN_REPO=${PLUGIN_REPO:-aliyun}  # 默认使用aliyun
+    fi
+    
+    # 读取端口配置
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        HYBRID_PORT=$(grep "^HYBRID_PORT=" "$config_file" | cut -d'=' -f2)
+        HYBRID_PORT=${HYBRID_PORT:-5801}  # 默认端口5801
+    else
+        MASTER_PORT=$(grep "^MASTER_PORT=" "$config_file" | cut -d'=' -f2)
+        WORKER_PORT=$(grep "^WORKER_PORT=" "$config_file" | cut -d'=' -f2)
+        MASTER_PORT=${MASTER_PORT:-5801}  # 默认端口5801
+        WORKER_PORT=${WORKER_PORT:-5802}  # 默认端口5802
     fi
 }
 
@@ -298,20 +407,20 @@ create_directory() {
 
 # 临时文件管理
 create_temp_file() {
-    local temp_dir="/tmp/seatunnel-install-$INSTALL_USER"
+    local temp_dir="$LOG_DIR/temp"
     local temp_file
     
     # 创建临时目录（如果不存在）
     if [ ! -d "$temp_dir" ]; then
         mkdir -p "$temp_dir" || log_error "无法创建临时目录: $temp_dir"
         chmod 700 "$temp_dir"
-        chown "$INSTALL_USER:$INSTALL_GROUP" "$temp_dir"
+        [ -n "$INSTALL_USER" ] && [ -n "$INSTALL_GROUP" ] && chown "$INSTALL_USER:$INSTALL_GROUP" "$temp_dir"
     fi
     
     # 创建临时文件
     temp_file=$(mktemp "$temp_dir/temp.XXXXXX") || log_error "无法创建临时文件"
     chmod 600 "$temp_file"
-    chown "$INSTALL_USER:$INSTALL_GROUP" "$temp_file"
+    [ -n "$INSTALL_USER" ] && [ -n "$INSTALL_GROUP" ] && chown "$INSTALL_USER:$INSTALL_GROUP" "$temp_file"
     
     # 添加到临时文件列表
     TEMP_FILES+=("$temp_file")
@@ -321,18 +430,38 @@ create_temp_file() {
 
 # 清理临时文件
 cleanup_temp_files() {
-    local temp_dir="/tmp/seatunnel-install-$INSTALL_USER"
+    log_info "进入cleanup_temp_files函数..."
+    
+    # 检查数组是否已定义
+    if [ -z "${TEMP_FILES+x}" ]; then
+        log_info "TEMP_FILES数组未定义，退出清理"
+        return 0
+    fi
+    
+    log_info "当前TEMP_FILES数组大小: ${#TEMP_FILES[@]}"
+    
+    local temp_dir="$LOG_DIR/temp"
+    
+    # 检查是否有临时文件需要清理
+    if [ ${#TEMP_FILES[@]} -eq 0 ]; then
+        log_info "没有临时文件需要清理"
+        return 0
+    fi
+    
+    log_info "清理临时文件..."
     
     # 清理所有已记录的临时文件
     for temp_file in "${TEMP_FILES[@]}"; do
         if [ -f "$temp_file" ]; then
             rm -f "$temp_file"
+            log_info "已删除临时文件: $temp_file"
         fi
     done
     
     # 清理临时目录（如果为空）
     if [ -d "$temp_dir" ] && [ -z "$(ls -A "$temp_dir")" ]; then
         rm -rf "$temp_dir"
+        log_info "已删除空的临时目录: $temp_dir"
     fi
 }
 
@@ -395,7 +524,7 @@ replace_yaml_section() {
         local content_file=$(create_temp_file)
         echo "$indented_content" > "$content_file"
         
-        # 第一步：找到section的起始行号
+        # 第一步：找section的起始行号
         local start_line
         start_line=$(grep -n "$section" "$file" | cut -d: -f1)
         
@@ -489,19 +618,21 @@ modify_hazelcast_config() {
     local config_file=$1
     local content
     
-    # 备份原始文件
+    # 备份文件
     cp "$config_file" "${config_file}.bak"
     
     case "$config_file" in
         *"hazelcast.yaml")
             log_info "修改 hazelcast.yaml (集群通信配置)..."
             if [ "$DEPLOY_MODE" = "hybrid" ]; then
-                log_info "混合模式: 所有节点使用相同端口 ${HYBRID_PORT:-5801}"
                 # 生成新的member-list内容
                 content=$(for node in "${ALL_NODES[@]}"; do
                     echo "- ${node}:${HYBRID_PORT:-5801}"
                 done)
                 replace_yaml_section "$config_file" "member-list:" 10 "$content"
+                
+                # 修改端口配置
+                sed -i "s/port: [0-9]\+/port: ${HYBRID_PORT:-5801}/" "$config_file"
             fi
             ;;
         *"hazelcast-client.yaml")
@@ -523,7 +654,7 @@ modify_hazelcast_config() {
         *"hazelcast-master.yaml")
             if [ "$DEPLOY_MODE" != "hybrid" ]; then
                 log_info "修改 hazelcast-master.yaml (Master节点配置)..."
-                log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，Worker使用 ${WORKER_PORT:-5802} 端口"
+                log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，master使用 ${MASTER_PORT:-5801} 端口"
                 # 生成新的member-list内容
                 content=$(
                     for master in "${MASTER_IPS[@]}"; do
@@ -534,6 +665,9 @@ modify_hazelcast_config() {
                     done
                 )
                 replace_yaml_section "$config_file" "member-list:" 10 "$content"
+                
+                # 修改端口配置
+                sed -i "s/port: [0-9]\+/port: ${MASTER_PORT:-5801}/" "$config_file"
             fi
             ;;
         *"hazelcast-worker.yaml")
@@ -550,23 +684,12 @@ modify_hazelcast_config() {
                     done
                 )
                 replace_yaml_section "$config_file" "member-list:" 10 "$content"
+                
+                # 修改端口配置
+                sed -i "s/port: [0-9]\+/port: ${WORKER_PORT:-5802}/" "$config_file"
             fi
             ;;
     esac
-    
-    # 显示修改结果
-    if [ -f "${config_file}.bak" ]; then
-        log_info "配置文件已备份为: ${config_file}.bak"
-        if diff -q "${config_file}.bak" "$config_file" >/dev/null; then
-            log_info "配置文件未发生变化"
-        else
-            log_info "配置文件已更新"
-            if [ "${DEBUG:-false}" = true ]; then
-                echo "修改详情:"
-                diff "${config_file}.bak" "$config_file" || true
-            fi
-        fi
-    fi
 }
 
 # 配置混合模式
@@ -604,18 +727,51 @@ setup_separated_mode() {
 # 启动集群
 start_cluster() {
     log_info "启动SeaTunnel集群..."
-    sudo chmod +x "$SEATUNNEL_HOME/bin/seatunnel-cluster.sh"
     
-    if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        run_as_user "$SEATUNNEL_HOME/bin/seatunnel-cluster.sh -d"
-    else
-        # 在master节点启动master服务
-        if [[ "$HOSTNAME" == "$MASTER_IP" ]]; then
-            run_as_user "$SEATUNNEL_HOME/bin/seatunnel-cluster.sh -d -r master"
+    if [ "${ENABLE_AUTO_START}" = "true" ]; then
+        # 使用systemd服务启动
+        local current_ip
+        current_ip=$(hostname -I | awk '{print $1}')
+        
+        if [ "$DEPLOY_MODE" = "hybrid" ]; then
+            # 混合模式：在所有节点上启动服务
+            for node in "${ALL_NODES[@]}"; do
+                log_info "在节点 $node 上启动 SeaTunnel 服务..."
+                if [ "$node" = "$current_ip" ]; then
+                    sudo systemctl daemon-reload
+                    sudo systemctl start seatunnel
+                else
+                    ssh -p "$SSH_PORT" "$node" "sudo systemctl daemon-reload && sudo systemctl start seatunnel"
+                fi
+            done
         else
-            # 在worker节点启动worker服务
-            run_as_user "$SEATUNNEL_HOME/bin/seatunnel-cluster.sh -d -r worker"
+            # 分离模式：根据节点角色启动对应服务
+            # 启动Master节点
+            for master in "${MASTER_IPS[@]}"; do
+                log_info "在Master节点 $master 上启动服务..."
+                if [ "$master" = "$current_ip" ]; then
+                    sudo systemctl daemon-reload
+                    sudo systemctl start seatunnel-master
+                else
+                    ssh -p "$SSH_PORT" "$master" "sudo systemctl daemon-reload && sudo systemctl start seatunnel-master"
+                fi
+            done
+            
+            # 启动Worker节点
+            for worker in "${WORKER_IPS[@]}"; do
+                log_info "在Worker节点 $worker 上启动服务..."
+                if [ "$worker" = "$current_ip" ]; then
+                    sudo systemctl daemon-reload
+                    sudo systemctl start seatunnel-worker
+                else
+                    ssh -p "$SSH_PORT" "$worker" "sudo systemctl daemon-reload && sudo systemctl start seatunnel-worker"
+                fi
+            done
         fi
+    else
+        # 使用脚本启动
+        sudo chmod +x "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh"
+        run_as_user "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start"
     fi
 }
 
@@ -670,36 +826,73 @@ check_ports() {
 # 检查服务状态
 check_services() {
     log_info "检查服务状态..."
+    
+    # 等待服务启动
+    log_info "等待服务启动（10秒）..."
     sleep 10
     
+    # 检查所有节点的服务状态
+    local nodes=()
+    local ports=()
+    
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        local port=${HYBRID_PORT:-5801}
-        for node in "${ALL_NODES[@]}"; do
-            if ! check_port "$node" "$port"; then
-                log_info "节点 $node 服务启动成功"
-            else
-                log_warning "节点 $node 服务未响应"
-            fi
+        # 混合模式：所有节点使用相同端口
+        nodes=("${ALL_NODES[@]}")
+        for node in "${nodes[@]}"; do
+            ports+=("${HYBRID_PORT:-5801}")
         done
     else
-        local master_port=${MASTER_PORT:-5801}
-        local worker_port=${WORKER_PORT:-5802}
-        
+        # 分离模式：收集所有节点和对应端口
         for master in "${MASTER_IPS[@]}"; do
-            if ! check_port "$master" "$master_port"; then
-                log_info "Master节点 $master 服务启动成功"
-            else
-                log_warning "Master节点 $master 服务未响应"
-            fi
+            nodes+=("$master")
+            ports+=("${MASTER_PORT:-5801}")
         done
-        
         for worker in "${WORKER_IPS[@]}"; do
-            if ! check_port "$worker" "$worker_port"; then
-                log_info "Worker节点 $worker 服务启动成功"
-            else
-                log_warning "Worker节点 $worker 服务未响应"
-            fi
+            nodes+=("$worker")
+            ports+=("${WORKER_PORT:-5802}")
         done
+    fi
+    
+    # 检查每个节点的服务状态
+    local success=true
+    for i in "${!nodes[@]}"; do
+        local node="${nodes[$i]}"
+        local port="${ports[$i]}"
+        
+        log_info "检查节点 $node:$port 的服务状态..."
+        
+        # 尝试多种方式检查端口
+        local service_running=false
+        
+        if command -v nc >/dev/null 2>&1; then
+            # 使用nc命令
+            if nc -z -w2 "$node" "$port" >/dev/null 2>&1; then
+                service_running=true
+            fi
+        elif command -v telnet >/dev/null 2>&1; then
+            # 使用telnet命令
+            if echo quit | timeout 2 telnet "$node" "$port" >/dev/null 2>&1; then
+                service_running=true
+            fi
+        else
+            # 使用/dev/tcp
+            if timeout 2 bash -c "echo >/dev/tcp/$node/$port" >/dev/null 2>&1; then
+                service_running=true
+            fi
+        fi
+        
+        if [ "$service_running" = true ]; then
+            log_success "节点 $node:$port 服务运行正常"
+        else
+            log_warning "节点 $node:$port 服务未响应"
+            success=false
+        fi
+    done
+    
+    if [ "$success" = true ]; then
+        log_success "所有节点服务检查通过"
+    else
+        log_warning "部分节点服务检查未通过，请检查日志确认具体原因"
     fi
 }
 
@@ -712,7 +905,7 @@ configure_checkpoint() {
     if [[ -z "$CHECKPOINT_STORAGE_TYPE" ]]; then
         log_info "未配置检查点存储类型，使用默认配置"
         CHECKPOINT_STORAGE_TYPE="LOCAL_FILE"
-    }
+    fi
 
     # Validate required variables based on storage type
     case "$CHECKPOINT_STORAGE_TYPE" in
@@ -841,6 +1034,7 @@ check_dependencies() {
             log_error "缺少必需的命令: $cmd"
         fi
     done
+    
 }
 
 # 检查URL是否可访问
@@ -848,14 +1042,12 @@ check_url() {
     local url=$1
     local timeout=5
     
-    if command -v curl >/dev/null 2>&1; then
-        if curl --connect-timeout "$timeout" -sI "$url" >/dev/null 2>&1; then
-            return 0
-        fi
-    elif command -v wget >/dev/null 2>&1; then
-        if wget --spider -q -T "$timeout" "$url" >/dev/null 2>&1; then
-            return 0
-        fi
+    if ! command -v curl >/dev/null 2>&1; then
+        log_error "未找到curl命令,请先安装curl"
+    fi
+    
+    if curl --connect-timeout "$timeout" -sI "$url" >/dev/null 2>&1; then
+        return 0
     fi
     return 1
 }
@@ -871,36 +1063,24 @@ download_package() {
     local version=$2
     local retries=3
     local retry_count=0
-    local download_tool
     
     log_info "开始下载安装包..."
     
-    # 检查下载工具
-    if command -v wget >/dev/null 2>&1; then
-        download_tool="wget"
-    elif command -v curl >/dev/null 2>&1; then
-        download_tool="curl"
-    else
-        log_error "未找到wget或curl,请安装后重试"
+    # 检查curl命令
+    if ! command -v curl >/dev/null 2>&1; then
+        log_error "未找到curl命令,请先安装curl"
     fi
     
     # 获取仓库配置
     local repo=${PACKAGE_REPO:-aliyun}
     local url
     
-    if [ "$repo" = "custom" ]; then
-        if [ -z "$CUSTOM_PACKAGE_URL" ]; then
-            log_error "使用自定义仓库时必须配置 CUSTOM_PACKAGE_URL"
-        fi
-        url=$(echo "$CUSTOM_PACKAGE_URL" | sed "s/\${version}/$version/g")
-    else
-        # 获取发布包下载地址
-        url="${PACKAGE_REPOS[$repo]}"
-        if [ -z "$url" ]; then
-            log_error "不支持的安装包仓库: $repo"
-        fi
-        url="$url/${version}/apache-seatunnel-${version}-bin.tar.gz"
+    # 获取发布包下载地址
+    url="${PACKAGE_REPOS[$repo]}"
+    if [ -z "$url" ]; then
+        log_error "不支持的安装包仓库: $repo"
     fi
+    url="$url/${version}/apache-seatunnel-${version}-bin.tar.gz"
     
     log_info "使用下载源: $url"
     
@@ -918,21 +1098,28 @@ download_package() {
             fi
         fi
         
-        if [ "$download_tool" = "wget" ]; then
-            if wget -q --show-progress "$url" -O "$output_file"; then
+        # 使用curl下载，显示进度条
+        if curl -L \
+            --fail \
+            --progress-bar \
+            --connect-timeout 10 \
+            --retry 3 \
+            --retry-delay 2 \
+            --retry-max-time 60 \
+            -o "$output_file" \
+            "$url" 2>&1; then
+            
+            # 验证下载文件
+            if [ -f "$output_file" ] && [ -s "$output_file" ]; then
                 log_info "下载完成: $output_file"
                 return 0
-            fi
-        else
-            if curl -# -L "$url" -o "$output_file"; then
-                log_info "下载完成: $output_file"
-                return 0
+            else
+                log_warning "下载文件为空或不存在"
             fi
         fi
         
         retry_count=$((retry_count + 1))
-        log_warning "下载失败,等待重试..."
-        sleep 3
+        [ $retry_count -lt $retries ] && log_warning "下载失败,等待重试..." && sleep 3
     done
     
     log_error "下载失败,已重试 $retries 次"
@@ -949,14 +1136,24 @@ verify_package() {
         log_error "安装包不存在: $package_file"
     fi
     
-    # 检文件格式
+    # 检查文件格式
     if ! file "$package_file" | grep -q "gzip compressed data"; then
         log_error "安装包格式错误,必须是tar.gz格式"
     fi
     
-    # 检查是否包含版本号
-    if ! tar -tzf "$package_file" 2>/dev/null | grep -q "seatunnel-$SEATUNNEL_VERSION"; then
-        log_warning "安装包可能与配置的版本号不匹配: $SEATUNNEL_VERSION"
+    # 检查文件名是否包含版本号
+    if ! echo "$package_file" | grep -q "apache-seatunnel-${SEATUNNEL_VERSION}"; then
+        log_warning "安装包文件名与配置的版本号不匹配: $SEATUNNEL_VERSION"
+        log_warning "安装包: $package_file"
+        read -r -p "是否继续安装? [y/N] " response
+        case "$response" in
+            [yY][eE][sS]|[yY]) 
+                log_warning "继续安装..."
+                ;;
+            *)
+                log_error "安装已取消"
+                ;;
+        esac
     fi
     
     log_info "安装包验证通过"
@@ -965,6 +1162,10 @@ verify_package() {
 # 添加集群管理脚本
 setup_cluster_scripts() {
     log_info "添加集群管理脚本..."
+    
+    # 获取脚本所在目录的绝对路径
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     # 创建master和workers文件
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
@@ -976,99 +1177,104 @@ setup_cluster_scripts() {
     fi
     
     # 创建集群启动脚本
-    cat > "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh" << EOF
+    cat > "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh" << 'EOF'
 #!/bin/bash 
   
 # 定义 SeaTunnelServer 进程名称，需要根据实际情况进行修改
 PROCESS_NAME="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
+
+# 获取脚本所在目录的绝对路径
+bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_USER=root
+
 # 定义颜色
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# 安装用户
-INSTALL_USER="$INSTALL_USER"
-
 # 日志函数
 log_info() {
-  echo -e "\$(date '+%Y-%m-%d %H:%M:%S') [INFO] \$1"
+  echo -e "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $1"
 }
 
 log_error() {
-  echo -e "\$(date '+%Y-%m-%d %H:%M:%S') [${RED}ERROR${NC}] \$1"
+  echo -e "$(date '+%Y-%m-%d %H:%M:%S') [${RED}ERROR${NC}] $1"
 }
 
 log_success() {
-  echo -e "\$(date '+%Y-%m-%d %H:%M:%S') [${GREEN}SUCCESS${NC}] \$1"
+  echo -e "$(date '+%Y-%m-%d %H:%M:%S') [${GREEN}SUCCESS${NC}] $1"
 }
 
 log_warning() {
-  echo -e "\$(date '+%Y-%m-%d %H:%M:%S') [${YELLOW}WARNING${NC}] \$1"
+  echo -e "$(date '+%Y-%m-%d %H:%M:%S') [${YELLOW}WARNING${NC}] $1"
 }
 
-bin_dir="$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-export SEATUNNEL_HOME="\$(dirname \$bin_dir)"
-log_info "SEATUNNEL_HOME: \${SEATUNNEL_HOME}"
-master_conf="\${bin_dir}/master"
-workers_conf="\${bin_dir}/workers"
+export SEATUNNEL_HOME="$(dirname "$bin_dir")"
+log_info "SEATUNNEL_HOME: ${SEATUNNEL_HOME}"
+master_conf="${bin_dir}/master"
+workers_conf="${bin_dir}/workers"
 
-if [ -f "\$master_conf" ]; then
-    mapfile -t masters < <(sed 's/[[:space:]]*$//' "\$master_conf")
+if [ -f "$master_conf" ]; then
+    mapfile -t masters < <(sed 's/[[:space:]]*$//' "$master_conf")
 else
-    log_error "找不到 \$master_conf 文件"
+    log_error "找不到 $master_conf 文件"
     exit 1
 fi
 
-if [ -f "\$workers_conf" ]; then
-    mapfile -t workers < <(sed 's/[[:space:]]*$//' "\$workers_conf")
+if [ -f "$workers_conf" ]; then
+    mapfile -t workers < <(sed 's/[[:space:]]*$//' "$workers_conf")
 else
-    log_error "找不到 \$workers_conf 文件"
+    log_error "找不到 $workers_conf 文件"
     exit 1
 fi
 
-mapfile -t servers < <(sort -u <(sed 's/[[:space:]]*$//' "\$master_conf" "\$workers_conf"))
+mapfile -t servers < <(sort -u <(sed 's/[[:space:]]*$//' "$master_conf" "$workers_conf"))
 
 sshPort=22
+EOF
+
+    # 继续写入脚本内容...
+    cat >> "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh" << 'EOF'
 
 start(){
     echo "-------------------------------------------------"
-    for master in "\${masters[@]}"; do
-        if [ "\$master" = "localhost" ]; then
-            log_warning "检测到仅有本地程跳过远程执行..."
-            \${bin_dir}/seatunnel-cluster.sh -d  -r master
-            log_success "\${master}的SeaTunnel-master启动成功"
+    for master in "${masters[@]}"; do
+        if [ "$master" = "localhost" ]; then
+            log_warning "检测到仅有本地进程，跳过远程执行..."
+            ${bin_dir}/seatunnel-cluster.sh -d  -r master
+            log_success "${master}的SeaTunnel-master启动成功"
         else
-            log_info "正在 \${master} 上启动 SeaTunnelServer。"
-            ssh -p \$sshPort -o StrictHostKeyChecking=no "\${INSTALL_USER}@\${master}" "source /etc/profile && source ~/.bashrc && \${bin_dir}/seatunnel-cluster.sh -d  -r master"
-            log_success "\${master}的SeaTunnel-master启动成功"    
+            log_info "正在 ${master} 上启动 SeaTunnelServer。"
+            ssh -p $sshPort -o StrictHostKeyChecking=no "${INSTALL_USER}@${master}" "source /etc/profile && source ~/.bashrc && ${bin_dir}/seatunnel-cluster.sh -d  -r master"
+            log_success "${master}的SeaTunnel-master启动成功"    
         fi
     done
 
-    for worker in "\${workers[@]}"; do
-        if [ "\$worker" = "localhost" ]; then
+    for worker in "${workers[@]}"; do
+        if [ "$worker" = "localhost" ]; then
             log_warning "检测到仅有本地进程，跳过远程执行..."
-            \${bin_dir}/seatunnel-cluster.sh -d  -r worker
-            log_success "\${worker}的SeaTunnel-worker启动成功"
+            ${bin_dir}/seatunnel-cluster.sh -d  -r worker
+            log_success "${worker}的SeaTunnel-worker启动成功"
         else
-            log_info "正在 \${worker} 上启动 SeaTunnelServer。"
-            ssh -p \$sshPort -o StrictHostKeyChecking=no "\${INSTALL_USER}@\${worker}" "source /etc/profile && source ~/.bashrc && \${bin_dir}/seatunnel-cluster.sh -d  -r worker"
-            log_success "\${worker}的SeaTunnel-worker启动成功"    
+            log_info "正在 ${worker} 上启动 SeaTunnelServer。"
+            ssh -p $sshPort -o StrictHostKeyChecking=no "${INSTALL_USER}@${worker}" "source /etc/profile && source ~/.bashrc && ${bin_dir}/seatunnel-cluster.sh -d  -r worker"
+            log_success "${worker}的SeaTunnel-worker启动成功"    
         fi
     done
 }
 
 stop(){
     echo "-------------------------------------------------"
-    for server in "\${servers[@]}"; do
-        if [ "\$server" = "localhost" ]; then
+    for server in "${servers[@]}"; do
+        if [ "$server" = "localhost" ]; then
             log_warning "检测到仅有本地进程，跳过远程执行..."
-            \${bin_dir}/stop-seatunnel-cluster.sh
-            log_success "\${server}的SeaTunnel 停止成功"
+            ${bin_dir}/stop-seatunnel-cluster.sh
+            log_success "${server}的SeaTunnel 停止成功"
         else
-            log_info "正在 \${server} 上停止 SeaTunnelServer。"
-            ssh -p \$sshPort -o StrictHostKeyChecking=no "\${INSTALL_USER}@\${server}" "source /etc/profile && source ~/.bashrc && \${bin_dir}/stop-seatunnel-cluster.sh"
-            log_success "\${server}的SeaTunnel 停止成功"
+            log_info "正在 ${server} 上停止 SeaTunnelServer"
+            ssh -p $sshPort -o StrictHostKeyChecking=no "${INSTALL_USER}@${server}" "source /etc/profile && source ~/.bashrc && ${bin_dir}/stop-seatunnel-cluster.sh"
+            log_success "${server}的SeaTunnel 停止成功"
         fi
     done
 }
@@ -1079,7 +1285,7 @@ restart(){
     start
 }
 
-case "\$1" in
+case "$1" in
     "start")
         start
         ;;
@@ -1090,7 +1296,7 @@ case "\$1" in
         restart
         ;;
     *)
-        echo "用法：\$0 {start|stop|restart}"
+        echo "用法：$0 {start|stop|restart}"
         exit 1
 esac
 EOF
@@ -1108,8 +1314,8 @@ EOF
     log_info "集群管理脚本添加完成"
 }
 
-# 安装插件和JDBC驱动
-install_plugins_and_drivers() {
+# 安装插件和依赖库
+install_plugins_and_libs() {
     # 检查是否需要安装连接器
     if [ "${INSTALL_CONNECTORS}" != "true" ]; then
         log_info "跳过连接器和依赖安装"
@@ -1135,113 +1341,219 @@ install_plugins_and_drivers() {
     # 读取启用的连接器列表
     IFS=',' read -r -a enabled_connectors <<< "${CONNECTORS}"
     
-    if [ "$INSTALL_MODE" = "offline" ]; then
-        log_info "离线模式: 从本地安装插件..."
-        # 检查本地插件目录
-        local local_plugins_dir="plugins"
-        if [ ! -d "$local_plugins_dir" ]; then
-            log_error "离线模式下未找到本地插件目录: $local_plugins_dir"
+    # 从配置文件读取仓库配置
+    local config_file="config.properties"
+    local repo
+    repo=$(grep "^PLUGIN_REPO=" "$config_file" | cut -d'=' -f2)
+    repo=${repo:-aliyun}  # 如果未配置，默认使用aliyun
+    
+    local retries=3
+    
+    # 处理每个连接器
+    for connector in "${enabled_connectors[@]}"; do
+        connector=$(echo "$connector" | tr -d '[:space:]')
+        log_info "处理连接器: $connector"
+        
+        # 下载连接器插件
+        local plugin_jar="connector-${connector}-${SEATUNNEL_VERSION}.jar"
+        local target_path="$connectors_dir/$plugin_jar"
+        
+        # 检查插件是否已存在
+        if [ -f "$target_path" ]; then
+            log_info "连接器插件已存在: $plugin_jar"
+        else
+            log_info "下载连接器插件: $plugin_jar"
+            download_artifact "$target_path" "$connector" "plugin"
         fi
         
-        # 复制插件
-        for connector in "${enabled_connectors[@]}"; do
-            connector=$(echo "$connector" | tr -d '[:space:]')
-            local plugin_jar="$local_plugins_dir/connector-${connector}-${SEATUNNEL_VERSION}.jar"
-            
-            if [ -f "$plugin_jar" ]; then
-                log_info "安装本地插件: $connector"
-                cp "$plugin_jar" "$connectors_dir/"
-            else
-                log_error "未找到本地插件: $plugin_jar"
+        # 读取并处理连接器的依赖库
+        local libs_str
+        libs_str=$(grep "^${connector}_libs=" "$config_file" | cut -d'=' -f2)
+        
+        if [ -n "$libs_str" ]; then
+            log_info "处理 $connector 连接器的依赖库..."
+            IFS=',' read -r -a libs <<< "$libs_str"
+            for lib in "${libs[@]}"; do
+                lib=$(echo "$lib" | tr -d '[:space:]')  # 移除空白字符
+                IFS=':' read -r group_id artifact_id version <<< "$lib"
+                local lib_name="${artifact_id}-${version}.jar"
+                local lib_path="$lib_dir/$lib_name"
+                
+                # 检查依赖库是否已存在
+                if [ -f "$lib_path" ]; then
+                    log_info "依赖库已存在: $lib_name"
+                else
+                    log_info "下载依赖库: $lib_name"
+                    download_artifact "$lib_path" "$lib" "lib"
+                fi
+            done
+        else
+            log_info "连接器 $connector 没有配置依赖库"
+        fi
+    done
+    
+    log_info "插件和依赖安装完成"
+}
+
+# 下载构件（插件或库）
+download_artifact() {
+    local target_path=$1
+    local artifact=$2
+    local type=$3
+    local retry_count=0
+    local download_success=false
+    
+    while [ $retry_count -lt $retries ]; do
+        log_info "下载尝试 $((retry_count + 1))/$retries"
+        
+        # 构建下载URL
+        local download_url
+        local repo_url="${PLUGIN_REPOS[$repo]}"
+        
+        if [ "$type" = "plugin" ]; then
+            # 标准仓库的插件URL格式
+            download_url="$repo_url/org/apache/seatunnel/connector-${artifact}/${SEATUNNEL_VERSION}/connector-${artifact}-${SEATUNNEL_VERSION}.jar"
+        else
+            # 处理依赖库的URL
+            IFS=':' read -r group_id artifact_id version <<< "$artifact"
+            group_path=$(echo "$group_id" | tr '.' '/')
+            download_url="$repo_url/$group_path/$artifact_id/$version/$artifact_id-$version.jar"
+        fi
+        
+        log_info "从 $download_url 下载..."
+        
+        # 检查URL是否可访问
+        if ! check_url "$download_url"; then
+            log_warning "当前下载源不可用，尝试切换到备用源..."
+            if [ "$repo" = "aliyun" ]; then
+                repo="apache"
+                continue
+            elif [ "$repo" = "huaweicloud" ]; then
+                repo="aliyun"
+                continue
             fi
-        done
-    else
-        # 在线模式下载插件的原有逻辑...
+        fi
+        
+        # 使用curl下载
+        if curl -L \
+            --fail \
+            --progress-bar \
+            --connect-timeout 10 \
+            --retry 3 \
+            --retry-delay 2 \
+            --retry-max-time 60 \
+            -o "$target_path" \
+            "$download_url" 2>&1; then
+            
+            if [ -f "$target_path" ]; then
+                chmod 644 "$target_path"
+                chown "$INSTALL_USER:$INSTALL_GROUP" "$target_path"
+                log_info "下载成功: $(basename "$target_path")"
+                download_success=true
+                break
+            fi
+        fi
+        
+        retry_count=$((retry_count + 1))
+        [ $retry_count -lt $retries ] && log_warning "下载失败，等待重试..." && sleep 3
+    done
+    
+    if [ "$download_success" != "true" ]; then
+        log_error "下载失败: $download_url，已重试 $retries 次"
     fi
 }
 
-# 配置开机自启动
-setup_auto_start() {
-    if [ "${ENABLE_AUTO_START}" != "true" ]; then
-        log_info "跳过开机自启动配置"
-        return 0
-    fi
+# 修改create_service_file函数，添加必要的参数
+create_service_file() {
+    local service_name=$1
+    local role=$2
+    local java_home=${3:-"$JAVA_HOME"}
+    local seatunnel_home=${4:-"$SEATUNNEL_HOME"}
+    local install_user=${5:-"$INSTALL_USER"}
+    local install_group=${6:-"$INSTALL_GROUP"}
     
-    log_info "配置SeaTunnel开机自启动..."
+    local service_file="/etc/systemd/system/${service_name}.service"
+    local description="Apache SeaTunnel ${role} Service"
+    local exec_args=""
+    local hazelcast_config=""
+    local jvm_options_file=""
     
-    # 创建systemd服务文件
-    if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        # 混合模式服务文件
-        local service_file="/etc/systemd/system/seatunnel.service"
-        cat > "$service_file" << EOF
-[Unit]
-Description=Apache SeaTunnel Service (Hybrid Mode)
-After=network.target
+    # 设置配置文件和参数
+    case "$role" in
+        "Hybrid")
+            exec_args=""
+            seatunnel_logs="seatunnel-engine-server"
+            hazelcast_config="${seatunnel_home}/config/hazelcast.yaml"
+            jvm_options_file="${seatunnel_home}/config/jvm_options"
+            ;;
+        "Master")
+            exec_args="-r master"
+            seatunnel_logs="seatunnel-engine-master"
+            hazelcast_config="${seatunnel_home}/config/hazelcast-master.yaml"
+            jvm_options_file="${seatunnel_home}/config/jvm_master_options"
+            ;;
+        "Worker")
+            exec_args="-r worker"
+            seatunnel_logs="seatunnel-engine-worker"
+            hazelcast_config="${seatunnel_home}/config/hazelcast-worker.yaml"
+            jvm_options_file="${seatunnel_home}/config/jvm_worker_options"
+            ;;
+    esac
 
-[Service]
-Type=simple
-User=${INSTALL_USER}
-Group=${INSTALL_GROUP}
-Environment="JAVA_HOME=${JAVA_HOME}"
-Environment="PATH=${PATH}:${JAVA_HOME}/bin"
-WorkingDirectory=${SEATUNNEL_HOME}
-ExecStart=${SEATUNNEL_HOME}/bin/seatunnel-cluster.sh -d
-ExecStop=/bin/bash -c 'pkill -f "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer -d"'
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    else
-        # 分离模式 - 创建master服务
-        if [[ " ${MASTER_IPS[*]} " =~ " $(hostname) " ]]; then
-            local service_file="/etc/systemd/system/seatunnel-master.service"
-            cat > "$service_file" << EOF
-[Unit]
-Description=Apache SeaTunnel Master Service
-After=network.target
-
-[Service]
-Type=simple
-User=${INSTALL_USER}
-Group=${INSTALL_GROUP}
-Environment="JAVA_HOME=${JAVA_HOME}"
-Environment="PATH=${PATH}:${JAVA_HOME}/bin"
-WorkingDirectory=${SEATUNNEL_HOME}
-ExecStart=${SEATUNNEL_HOME}/bin/seatunnel-cluster.sh -d -r master
-ExecStop=/bin/bash -c 'pkill -f "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer -d -r master"'
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        else
-            # 分离模式 - 创建worker服务
-            local service_file="/etc/systemd/system/seatunnel-worker.service"
-            cat > "$service_file" << EOF
-[Unit]
-Description=Apache SeaTunnel Worker Service
-After=network.target
-
-[Service]
-Type=simple
-User=${INSTALL_USER}
-Group=${INSTALL_GROUP}
-Environment="JAVA_HOME=${JAVA_HOME}"
-Environment="PATH=${PATH}:${JAVA_HOME}/bin"
-WorkingDirectory=${SEATUNNEL_HOME}
-ExecStart=${SEATUNNEL_HOME}/bin/seatunnel-cluster.sh -d -r worker
-ExecStop=/bin/bash -c 'pkill -f "org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer -d -r worker"'
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
+    # 从JVM配置文件读取堆内存大小
+    local heap_size
+    heap_size=$(grep "^-Xmx" "$jvm_options_file" | sed 's/-Xmx\([0-9]\+\)g/\1/')
+    
+    # 读取所有JVM配置
+    local jvm_opts=""
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+        if [[ "$line" =~ ^-XX ]]; then
+            if [[ "$line" =~ HeapDumpPath ]]; then
+                jvm_opts+="${line/\/tmp\/seatunnel\/dump\/zeta-server/${seatunnel_home}\/dump\/seatunnel-zeta-server} "
+            else
+                jvm_opts+="$line "
+            fi
         fi
-    fi
+    done < "$jvm_options_file"
+
+    # 创建服务文件
+    cat > "$service_file" << EOF
+[Unit]
+Description=${description}
+After=network.target
+
+[Service]
+Type=simple
+User=${install_user}
+Group=${install_group}
+Environment="JAVA_HOME=${java_home}"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:\${JAVA_HOME}/bin"
+Environment="SEATUNNEL_HOME=${seatunnel_home}"
+WorkingDirectory=${seatunnel_home}
+ExecStart=${java_home}/bin/java \\
+    -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector \\
+    -Dhazelcast.logging.type=log4j2 \\
+    -Dlog4j2.configurationFile=${seatunnel_home}/config/log4j2.properties \\
+    -Dseatunnel.logs.path=${seatunnel_home}/logs \\
+    -Dseatunnel.logs.file_name=${seatunnel_logs} \\
+    -Xms${heap_size}g \\
+    -Xmx${heap_size}g \\
+    ${jvm_opts}\\
+    -Dseatunnel.config=${seatunnel_home}/config/seatunnel.yaml \\
+    -Dhazelcast.config=${hazelcast_config} \\
+    -cp "${seatunnel_home}/lib/*:${seatunnel_home}/starter/seatunnel-starter.jar" \\
+    org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer ${exec_args}
+ExecStop=/bin/kill -s TERM \$MAINPID
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
     # 设置权限
     chmod 644 "$service_file"
@@ -1251,72 +1563,255 @@ EOF
     
     # 启用服务
     sudo systemctl enable "$(basename "$service_file")"
+}
+
+# 修改setup_auto_start函数
+setup_auto_start() {
+    if [ "${ENABLE_AUTO_START}" != "true" ]; then
+        log_info "跳过开机自启动配置"
+        return 0
+    fi
     
-    log_info "开机自启动配置完成"
+    log_info "配置SeaTunnel开机自启动..."
+    local current_ip
+    current_ip=$(hostname -I | awk '{print $1}')
     
-    # 显示服务状态
-    echo -e "\n当前服务状态:"
-    sudo systemctl status "$(basename "$service_file")"
-    
-    echo -e "\n可用的systemd命令:"
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        echo "启动服务:    sudo systemctl start seatunnel"
-        echo "停止服务:    sudo systemctl stop seatunnel"
-        echo "重启服务:    sudo systemctl restart seatunnel"
-        echo "查看状态:    sudo systemctl status seatunnel"
-        echo "禁用自启动:  sudo systemctl disable seatunnel"
+        # 混合模式：在所有节点上配置相同的服务
+        for node in "${ALL_NODES[@]}"; do
+            log_info "在节点 $node 上配置服务..."
+            if [ "$node" = "$current_ip" ]; then
+                create_service_file "seatunnel" "Hybrid"
+            else
+                # 远程执行create_service_file函数
+                ssh -p "$SSH_PORT" "$node" "$(declare -f create_service_file); create_service_file 'seatunnel' 'Hybrid' '${JAVA_HOME}' '${SEATUNNEL_HOME}' '${INSTALL_USER}' '${INSTALL_GROUP}'"
+            fi
+        done
     else
-        if [[ " ${MASTER_IPS[*]} " =~ " $(hostname) " ]]; then
-            echo "启动服务:    sudo systemctl start seatunnel-master"
-            echo "停止服务:    sudo systemctl stop seatunnel-master"
-            echo "重启服务:    sudo systemctl restart seatunnel-master"
-            echo "查看状态:    sudo systemctl status seatunnel-master"
-            echo "禁用自启动:  sudo systemctl disable seatunnel-master"
+        # 分离模式：根据节点角色配置服务
+        # 配置Master节点
+        for master in "${MASTER_IPS[@]}"; do
+            log_info "在Master节点 $master 上配置服务..."
+            if [ "$master" = "$current_ip" ]; then
+                create_service_file "seatunnel-master" "Master"
+            else
+                ssh -p "$SSH_PORT" "$master" "$(declare -f create_service_file); create_service_file 'seatunnel-master' 'Master' '${JAVA_HOME}' '${SEATUNNEL_HOME}' '${INSTALL_USER}' '${INSTALL_GROUP}'"
+            fi
+        done
+        
+        # 配置Worker节点
+        for worker in "${WORKER_IPS[@]}"; do
+            log_info "在Worker节点 $worker 上配置服务..."
+            if [ "$worker" = "$current_ip" ]; then
+                create_service_file "seatunnel-worker" "Worker"
+            else
+                ssh -p "$SSH_PORT" "$worker" "$(declare -f create_service_file); create_service_file 'seatunnel-worker' 'Worker' '${JAVA_HOME}' '${SEATUNNEL_HOME}' '${INSTALL_USER}' '${INSTALL_GROUP}'"
+            fi
+        done
+    fi
+    
+    log_info "服务配置完成"
+}
+
+# 检查系统内存
+check_memory() {
+    log_info "检查系统内存..."
+    
+    # 获取系统总内存(GB)
+    local total_mem
+    if [ -f /proc/meminfo ]; then
+        total_mem=$(awk '/MemTotal/ {print int($2/1024/1024)}' /proc/meminfo)
+    else
+        # 对于不支持 /proc/meminfo 的系统，尝试使用其他命令
+        if command -v free >/dev/null 2>&1; then
+            total_mem=$(free -g | awk '/Mem:/ {print int($2)}')
         else
-            echo "启动服务:    sudo systemctl start seatunnel-worker"
-            echo "停止服务:    sudo systemctl stop seatunnel-worker"
-            echo "重启服务:    sudo systemctl restart seatunnel-worker"
-            echo "查看状态:    sudo systemctl status seatunnel-worker"
-            echo "禁用自启动:  sudo systemctl disable seatunnel-worker"
+            log_error "无法获取系统内存信息"
         fi
+    fi
+    
+    # 获取可用内存(GB)
+    local available_mem
+    if [ -f /proc/meminfo ]; then
+        available_mem=$(awk '/MemAvailable/ {print int($2/1024/1024)}' /proc/meminfo)
+    else
+        if command -v free >/dev/null 2>&1; then
+            available_mem=$(free -g | awk '/Mem:/ {print int($4)}')
+        else
+            log_error "无法获取系统可用内存信息"
+        fi
+    fi
+    
+    # 根据部署模式检查内存需求
+    local required_mem=0
+    local current_ip
+    current_ip=$(hostname -I | awk '{print $1}')
+    
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        required_mem=$((HYBRID_HEAP_SIZE + 2)) # 额外预留2GB系统使用
+        log_info "混合模式下需要 ${HYBRID_HEAP_SIZE}GB 堆内存 + 2GB 系统预留"
+    else
+        local is_master=false
+        local is_worker=false
+        
+        # 检查当前机器是否为Master节点
+        if [[ " ${MASTER_IPS[*]} " =~ " $current_ip " ]]; then
+            is_master=true
+            required_mem=$((MASTER_HEAP_SIZE))
+            log_info "当前节点是Master节点，需要 ${MASTER_HEAP_SIZE}GB 堆内存"
+        fi
+        
+        # 检查当前机器是否为Worker节点
+        if [[ " ${WORKER_IPS[*]} " =~ " $current_ip " ]]; then
+            is_worker=true
+            if [ "$is_master" = true ]; then
+                # 如果同时是Master和Worker，需要两者内存之和
+                required_mem=$((required_mem + WORKER_HEAP_SIZE))
+                log_info "当前节点同时是Worker节点，额外需要 ${WORKER_HEAP_SIZE}GB 堆内存"
+                log_info "总共需 ${required_mem}GB 堆内存 + 2GB 系统预留"
+            else
+                required_mem=$((WORKER_HEAP_SIZE))
+                log_info "当前节点是Worker节点，需要 ${WORKER_HEAP_SIZE}GB 堆内存"
+            fi
+        fi
+        
+        # 添加系统预留
+        required_mem=$((required_mem + 2))
+    fi
+    
+    log_info "系统总内存: ${total_mem}GB"
+    log_info "系统可用内存: ${available_mem}GB"
+    log_info "最小所需内存: ${required_mem}GB"
+    
+    # 检查总内存是否足够
+    if [ $total_mem -lt $required_mem ]; then
+        log_error "系统总内存不足！需要至少 ${required_mem}GB，当前只有 ${total_mem}GB"
+    fi
+    
+    # 检查可用内存是否足够
+    if [ $available_mem -lt $required_mem ]; then
+        log_warning "系统可用内存不足！需要至少 ${required_mem}GB，当前只有 ${available_mem}GB"
+        log_warning "建议释放一些内存后再继续安装"
+        read -r -p "是否继续安装? [y/N] " response
+        case "$response" in
+            [yY][eE][sS]|[yY]) 
+                log_warning "继续安装，但可能会影响系统性能"
+                ;;
+            *)
+                log_error "安装已取消"
+                ;;
+        esac
     fi
 }
 
+# 在颜色定义后添加
+# 错误追踪函数
+trace_error() {
+    local err=$?
+    local line_no=$1
+    local bash_command=$2
+    
+    echo -e "\n${RED}[ERROR TRACE]${NC} $(date '+%Y-%m-%d %H:%M:%S')"
+    echo -e "${RED}错误码:${NC} $err"
+    echo -e "${RED}错误行号:${NC} $line_no"
+    echo -e "${RED}错误命令:${NC} $bash_command"
+    
+    # 输出函数调用栈
+    local frame=0
+    echo -e "${RED}函数调用栈:${NC}"
+    while caller $frame; do
+        ((frame++))
+    done | awk '{printf "  %s(): 第%s行 in %s\n", $2, $1, $3}'
+    
+    # 如果是在函数中发生错误,显示函数名
+    if [[ "${FUNCNAME[*]}" ]]; then
+        echo -e "${RED}当前函数:${NC} ${FUNCNAME[1]}"
+    fi
+    
+    # 显示最后几行日志
+    echo -e "${RED}最后10行日志:${NC}"
+    tail -n 10 "$LOG_DIR/install.log" 2>/dev/null
+    
+    # 调用原有的错误处理
+    handle_error $line_no
+}
+
+# 设置错误追踪
+set -E           # 继承ERR trap
+set -o pipefail  # 管道中的错误也会被捕获
+trap 'trace_error ${LINENO} "$BASH_COMMAND"' ERR
+
+# 创建日志目录
+mkdir -p "$LOG_DIR"
+chmod 755 "$LOG_DIR"
+[ -n "$INSTALL_USER" ] && [ -n "$INSTALL_GROUP" ] && chown "$INSTALL_USER:$INSTALL_GROUP" "$LOG_DIR"
+
+# 创建日志文件
+touch "$LOG_FILE"
+chmod 644 "$LOG_FILE"
+
+# 如果INSTALL_USER已定义,设置目录和文件所有权
+if [ -n "$INSTALL_USER" ] && [ -n "$INSTALL_GROUP" ]; then
+    chown "$INSTALL_USER:$INSTALL_GROUP" "$LOG_DIR"
+    chown "$INSTALL_USER:$INSTALL_GROUP" "$LOG_FILE"
+fi
+
+# 重定向输出到日志文件
+exec 1> >(tee -a "$LOG_FILE")
+exec 2>&1
+
+# 记录脚本开始执行
+log_info "开始执行安装脚本..."
+log_info "脚本路径: $0"
+log_info "脚本参数: $*"
+
 # 主函数
 main() {
-    log_info "使用模式: \$([ "\$FORCE_SED" = true ] && echo "强制sed" || echo "自动选择")"
-    
     # 检查系统依赖
+    log_info "开始检查系统依赖..."
     check_dependencies
     
     # 检查Java环境
+    log_info "开始检查Java环境..."
     check_java
     
     # 初始化临时文件列表
+    log_info "初始化临时文件列表..."
     declare -a TEMP_FILES=()
     
     # 设置退出时清理
+    log_info "设置退出清理..."
     trap cleanup_temp_files EXIT INT TERM
     
     # 读取配置
+    log_info "开始读取配置文件..."
     read_config
     
     # 检查用户配置
+    log_info "检查用户配置..."
     check_user
+
+    # 检查系统内存
+    log_info "检查系统内存..."
+    check_memory
+
+        # 在配置集群之前检查端口
+    log_info "检查端口占用..."
+    check_ports
     
     # 处理安装包
-    if [ "\$INSTALL_MODE" = "online" ]; then
+    if [ "$INSTALL_MODE" = "online" ]; then
         # 在线安装模式
-        local package_name="apache-seatunnel-\${SEATUNNEL_VERSION}-bin.tar.gz"
-        local package_path="\$(cd "\$(dirname "\$0")" && pwd)/\$package_name"
+        local package_name="apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz"
+        local package_path="$(cd "$(dirname "$0")" && pwd)/$package_name"
         
         # 如果本地已存在,询问是否重新下载
-        if [ -f "\$package_path" ]; then
-            log_warning "发现本地已存在安装包: \$package_path"
+        if [ -f "$package_path" ]; then
+            log_warning "发现本地已存在安装包: $package_path"
             read -r -p "是否重新下载? [y/N] " response
-            case "\$response" in
+            case "$response" in
                 [yY][eE][sS]|[yY])
-                    rm -f "\$package_path"
+                    rm -f "$package_path"
                     ;;
                 *)
                     log_info "使用已存在的安装包"
@@ -1325,52 +1820,69 @@ main() {
         fi
         
         # 下载安装包
-        if [ ! -f "\$package_path" ]; then
-            download_package "\$package_path" "\$SEATUNNEL_VERSION"
+        if [ ! -f "$package_path" ]; then
+            download_package "$package_path" "$SEATUNNEL_VERSION"
         fi
         
-        PACKAGE_PATH="\$package_path"
+        PACKAGE_PATH="$package_path"
     fi
     
     # 验证安装包
-    verify_package "\$PACKAGE_PATH"
+    verify_package "$PACKAGE_PATH"
     
     # 创建安装目录
     log_info "创建安装目录..."
-    create_directory "\$BASE_DIR"
-    setup_permissions "\$BASE_DIR"
+    create_directory "$BASE_DIR"
+    setup_permissions "$BASE_DIR"
     
     # 解压安装包
     log_info "解压安装包..."
-    sudo tar -zxf "\$PACKAGE_PATH" -C "\$BASE_DIR"
-    setup_permissions "\$SEATUNNEL_HOME"
+    sudo tar -zxf "$PACKAGE_PATH" -C "$BASE_DIR"
+    setup_permissions "$SEATUNNEL_HOME"
     
     # 配置文件修改
     log_info "修改配置文件..."
     
     # 根据部署模式配置集群
-    if [ "\$DEPLOY_MODE" = "hybrid" ]; then
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
         setup_hybrid_mode
     else
         setup_separated_mode
     fi
+    
+    # 配置检查点存储
+    log_info "配置检查点存储..."
+    configure_checkpoint
 
+        # 安装插件和依赖
+    log_info "安装插件和依赖..."
+    install_plugins_and_libs
     # 添加集群管理脚本
     setup_cluster_scripts
+    sed -i "s/root/$INSTALL_USER/g" "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh"
 
     # 分发到其他节点
     log_info "分发其他节点..."
-    for node in "\${WORKER_IPS[@]}"; do
-        log_info "分发到 \$node..."
-        ssh_with_retry "\$node" "sudo mkdir -p \$BASE_DIR && sudo chown \$INSTALL_USER:\$INSTALL_GROUP \$BASE_DIR"
-        scp_with_retry "\$SEATUNNEL_HOME" "\$node" "\$BASE_DIR/"
+    local current_ip
+    current_ip=$(hostname -I | awk '{print $1}')
+    
+    for node in "${WORKER_IPS[@]}"; do
+        # 跳过当前节点
+        if [ "$node" = "$current_ip" ]; then
+            log_info "跳过当前节点: $node"
+            continue
+        fi
+        
+        log_info "分发到 $node..."
+        ssh_with_retry "$node" "sudo mkdir -p $BASE_DIR && sudo chown $INSTALL_USER:$INSTALL_GROUP $BASE_DIR"
+        scp_with_retry "$SEATUNNEL_HOME" "$node" "$BASE_DIR/"
     done
 
     # 配置环境变量
     log_info "配置环境变量..."
     BASHRC_CONTENT="
 # SEATUNNEL_HOME BEGIN
-export SEATUNNEL_HOME=\$SEATUNNEL_HOME
+export SEATUNNEL_HOME=$SEATUNNEL_HOME
 export PATH=\$PATH:\$SEATUNNEL_HOME/bin
 # SEATUNNEL_HOME END"
 
@@ -1378,76 +1890,114 @@ export PATH=\$PATH:\$SEATUNNEL_HOME/bin
     USER_HOME=""
     if command -v getent >/dev/null 2>&1; then
         # 使用getent
-        USER_HOME=\$(getent passwd "\$INSTALL_USER" | cut -d: -f6)
+        USER_HOME=$(getent passwd "$INSTALL_USER" | cut -d: -f6)
     else
         # 使用eval
-        USER_HOME=\$(eval echo ~"\$INSTALL_USER")
+        USER_HOME=$(eval echo ~"$INSTALL_USER")
     fi
     
-    if [ -z "\$USER_HOME" ]; then
-        log_error "无法获取用户 \$INSTALL_USER 的home目录"
+    if [ -z "$USER_HOME" ]; then
+        log_error "无法获取用户 $INSTALL_USER 的home目录"
+    fi
+    
+    # 检查是否已经配置过
+    if grep -q "SEATUNNEL_HOME" "$USER_HOME/.bashrc"; then
+        log_info "环境变量已存在，更新配置..."
+        # 删除旧的配置
+        sed -i '/# SEATUNNEL_HOME BEGIN/,/# SEATUNNEL_HOME END/d' "$USER_HOME/.bashrc"
     fi
     
     # 为指定用户添加环境变量
-    run_as_user "echo '\$BASHRC_CONTENT' >> \$USER_HOME/.bashrc"
+    echo "$BASHRC_CONTENT" >> "$USER_HOME/.bashrc"
     
     # 远程节点环境变量
-    for node in "\${WORKER_IPS[@]}"; do
-        ssh -p \$SSH_PORT "\$node" "sudo -u \$INSTALL_USER bash -c \"echo '\$BASHRC_CONTENT' >> \$(eval echo ~\$INSTALL_USER)/.bashrc\""
+    for node in "${WORKER_IPS[@]}"; do
+        # 跳过当前节点
+        if [ "$node" = "$current_ip" ]; then
+            continue
+        fi
+        
+        # 获取远程用户home目录
+        remote_home=$(ssh -p $SSH_PORT "$node" "echo ~$INSTALL_USER")
+        
+        # 检查并更新远程环境变量
+        ssh -p $SSH_PORT "$node" "
+            if grep -q 'SEATUNNEL_HOME' '$remote_home/.bashrc'; then
+                sed -i '/# SEATUNNEL_HOME BEGIN/,/# SEATUNNEL_HOME END/d' '$remote_home/.bashrc'
+            fi
+            echo '$BASHRC_CONTENT' >> '$remote_home/.bashrc'
+        "
     done
 
+    # 配置开机自启动
+    setup_auto_start
+    
     # 启动集群
     start_cluster
 
     # 检查服务状态
     check_services
 
-    # 配置检查点存储
-    log_info "配置检查点存储..."
-    configure_checkpoint
 
-    # 检查是否为分布式部署且使用本地存储
-    if [ "$DEPLOY_MODE" != "hybrid" ] && [ "$CHECKPOINT_STORAGE_TYPE" = "LOCAL_FILE" ]; then
-        log_warning "检测到分布式部署模式下使用本地文件作为checkpoint存储!"
-        log_warning "注意：这种配置仅适用于以下场景："
-        log_warning "1. 运行批处理任务（checkpoint非必须）"
-        log_warning "2. 单机测试环境"
-        log_warning "如果您在生产环境运行流式任务，建议配置分布式存储(HDFS/OSS/S3)作为checkpoint存储，详见配置文件说明"
-    fi
+
 
     # 添加安装完成后的验证提示
     echo -e "\n${GREEN}SeaTunnel安装完成!${NC}"
     echo -e "\n${YELLOW}验证和使用说明:${NC}"
     echo "1. 刷新环境变量:"
-    echo -e "${GREEN}source \$USER_HOME/.bashrc${NC}"
+    echo -e "${GREEN}source $USER_HOME/.bashrc${NC}"
     
     echo -e "\n2. 集群管理命令:"
-    echo -e "启动集群:  ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start${NC}"
-    echo -e "停止集群:  ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh stop${NC}"
-    echo -e "重启集群:  ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh restart${NC}"
+    if [ "${ENABLE_AUTO_START}" = "true" ]; then
+        if [ "$DEPLOY_MODE" = "hybrid" ]; then
+            echo -e "启动服务:    ${GREEN}sudo systemctl start seatunnel${NC}"
+            echo -e "停止服务:    ${GREEN}sudo systemctl stop seatunnel${NC}"
+            echo -e "重启服务:    ${GREEN}sudo systemctl restart seatunnel${NC}"
+            echo -e "查看状态:    ${GREEN}sudo systemctl status seatunnel${NC}"
+            echo -e "查看启动日志:    ${GREEN}sudo journalctl -u seatunnel -n 100 --no-pager${NC}"
+            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-server.out${NC}"
+        else
+            echo -e "Master服务命令:"
+            echo -e "启动服务:    ${GREEN}sudo systemctl start seatunnel-master${NC}"
+            echo -e "停止服务:    ${GREEN}sudo systemctl stop seatunnel-master${NC}"
+            echo -e "重启服务:    ${GREEN}sudo systemctl restart seatunnel-master${NC}"
+            echo -e "查看状态:    ${GREEN}sudo systemctl status seatunnel-master${NC}"
+            echo -e "查看启动日志:    ${GREEN}sudo journalctl -u seatunnel-master -n 100 --no-pager${NC}"
+            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-master.out${NC}"
+            echo -e "----------------------------------------"
+            echo -e "\nWorker服务命令:"
+            echo -e "启动服务:    ${GREEN}sudo systemctl start seatunnel-worker${NC}"
+            echo -e "停止服务:    ${GREEN}sudo systemctl stop seatunnel-worker${NC}"
+            echo -e "重启服务:    ${GREEN}sudo systemctl restart seatunnel-worker${NC}"
+            echo -e "查看状态:    ${GREEN}sudo systemctl status seatunnel-worker${NC}"
+            echo -e "查看启动日志:    ${GREEN}sudo journalctl -u seatunnel-worker -n 100 --no-pager${NC}"
+            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-worker.out${NC}"
+        fi
+    else
+        echo -e "启动集群:    ${GREEN}$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start${NC}"
+        echo -e "停止集群:    ${GREEN}$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh stop${NC}"
+        echo -e "重启集群:    ${GREEN}$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh restart${NC}"
+        echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-server.out${NC}"
+    fi
     
     echo -e "\n3. 验证安装:"
-    echo -e "运行示例任务: ${GREEN}\$SEATUNNEL_HOME/bin/seatunnel.sh --config config/v2.batch.config.template${NC}"
+    echo -e "运行示例任务: ${GREEN}$SEATUNNEL_HOME/bin/seatunnel.sh --config config/v2.batch.config.template${NC}"
     
-    echo -e "\n${YELLOW}部信息:${NC}"
+    echo -e "\n${YELLOW}部署信息:${NC}"
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
         echo "部署模式: 混合模式"
-        echo -e "集群节: ${GREEN}\${CLUSTER_NODES[*]}${NC}"
+        echo -e "集群节点: ${GREEN}${CLUSTER_NODES[*]}${NC}"
     else
         echo "部署模式: 分离模式"
-        echo -e "Master节点: ${GREEN}\${MASTER_IPS[*]}${NC}"
-        echo -e "Worker节点: ${GREEN}\${WORKER_IPS[*]}${NC}"
+        echo -e "Master节点: ${GREEN}${MASTER_IPS[*]}${NC}"
+        echo -e "Worker节点: ${GREEN}${WORKER_IPS[*]}${NC}"
     fi
     
     echo -e "\n${YELLOW}注意事项:${NC}"
-    echo "1. 首次启动集群前，请确保所有节点的环境变量已经生效"
-    echo "2. 建议先执行 start 命令启动集群，验证所有节点是否正常启动"
-    echo "3. 如果需要停止集群，请使用 stop 命令，确保所有进程正常关闭"
-    echo -e "4. 更多使用说明请参考：${GREEN}https://seatunnel.apache.org/docs${NC}"
+    echo "1. 首次启动集群前，请确保所有节点的环境变量已经生效,source $USER_HOME/.bashrc"
+    echo -e "2. 更多使用说明请参考：${GREEN}https://seatunnel.apache.org/docs${NC}"
 
-    # 配置开机自启动
-    setup_auto_start
 }
 
 # 执行主函数
-main 
+main

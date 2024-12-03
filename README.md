@@ -5,14 +5,9 @@
 SeaTunnel 是一个高性能、分布式的数据集成平台，支持实时和批量数据同步。本指南将帮助您快速完成 SeaTunnel 的 Zeta 集群安装部署。
 Flink/Spark 模式请自行适配。
 
-
 ## 目录
 
 - [快速部署](#快速部署)
-  * [1. 准备安装目录](#1-准备安装目录)
-  * [2. 配置SSH免密登录](#2-配置ssh免密登录)
-  * [3. 配置节点IP](#3-配置节点ip)
-  * [4. 执行安装](#4-执行安装)
 - [✨ 功能特性](#-功能特性)
 - [📦 快速开始](#-快速开始)
 - [⚙️ 配置说明](#️-配置说明)
@@ -21,53 +16,45 @@ Flink/Spark 模式请自行适配。
 - [🔧 部署模式](#-部署模式)
 - [📂 插件管理](#-插件管理)
 - [🚀 开机自启动](#-开机自启动)
+- [💫 安装模式](#-安装模式)
+- [🔄 部署模式](#-部署模式)
+- [🛡️ 安全配置](#-安全配置)
+- [🔍 系统检查](#-系统检查)
 - [❓ 常见问题](#-常见问题)
 - [💡 获取帮助](#-获取帮助)
+- [📦 下一步](#-下一步)
 - [🤝 贡献](#-贡献)
 
 ## 快速部署
 
 ### 1. 准备安装目录
 ```bash
-# 创建安装目录
 mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
-
-# 下载安装脚本和配置文件
 wget https://github.com/LeonYoah/seatunnel-installer/raw/main/install_seatunnel.sh
 wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties
-
-# 添加执行权限
 chmod +x install_seatunnel.sh
 ```
 
 > 💡 提示：
 > - 默认安装目录为 `/data/seatunnel`
 > - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
-> ```properties
-> # 修改为你想要的安装目录
-> BASE_DIR=/your/custom/path/seatunnel
-> ```
 
-### 2. 配置SSH免密登录
+### 2. 多节点执行-配置SSH免密登录
 ```bash
-# 在所有节点间配置SSH免密登录
-ssh-keygen -t rsa  # 如果已经有密钥对，可以跳过
+ssh-keygen -t rsa
 ssh-copy-id user@node1
 ssh-copy-id user@node2
 # ... 对所有节点执行
 ```
 
 ### 3. 配置节点IP（默认是localhost）
-只需修改config.properties中的以下部分：
+修改 config.properties 中的以下部分：
 ```properties
 # ==== 分离模式 ====
-# Master节点IP
 MASTER_IP=192.168.1.100,192.168.1.101
-# Worker节点IP
 WORKER_IPS=192.168.1.102,192.168.1.103,192.168.1.104
 
 # ==== 或者使用混合模式 ====
-# 所有节点IP
 CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
 ```
 
@@ -79,7 +66,6 @@ CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
 > 💡 提示：
 > - 默认已包含常用连接器(jdbc,hive)
 > - 其他配置项使用默认值，可按需调整
-> - 详细配置说明请继续往下阅读
 
 ### ⚠️ 重要提醒：分布式部署必读
 如果您正在部署分布式集群（多节点部署），请选择合适的配置分布式存储作为checkpoint存储，否则将影响以下功能：
@@ -175,7 +161,6 @@ STORAGE_BUCKET=your_bucket
 ## 📦 快速开始
 
 ### 一键安装
-
 ```bash
 ./install_seatunnel.sh
 ```
@@ -183,7 +168,6 @@ STORAGE_BUCKET=your_bucket
 > 💡 提示：安装默认自带jdbc和hive连接器及依赖
 
 ### 常用命令
-
 ```bash
 # 完整安装（含插件）
 ./install_seatunnel.sh
@@ -198,17 +182,16 @@ STORAGE_BUCKET=your_bucket
 ## ⚙️ 配置说明
 
 ### 基础配置
-
 ```properties
 # ==== 必选配置 ====
-SEATUNNEL_VERSION=2.3.7      # 版本号
-INSTALL_MODE=offline         # 安装模式(online/offline)
-BASE_DIR=/data/seatunnel    # 安装目录
+SEATUNNEL_VERSION=2.3.7
+INSTALL_MODE=offline
+BASE_DIR=/data/seatunnel
 
 # ==== 可选配置 ====
-DEPLOY_MODE=separated        # 部署模式(separated/hybrid)
-INSTALL_USER=root           # 安装用户
-INSTALL_GROUP=root          # 安装用户组
+DEPLOY_MODE=separated
+INSTALL_USER=root
+INSTALL_GROUP=root
 ```
 
 ## 🔄 启动命令
@@ -218,19 +201,23 @@ INSTALL_GROUP=root          # 安装用户组
 #### 混合模式 (Hybrid)/分离模式 (Separated)
 ```bash
 # 启动集群
-${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh start
-
+${BASE_DIR}/bin/seatunnel-cluster.sh start
 
 # 停止集群
-${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh stop
+${BASE_DIR}/bin/seatunnel-cluster.sh stop
 
-# 启动/停止/重启集群
-${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
+# 重启集群
+${BASE_DIR}/bin/seatunnel-cluster.sh restart
+
+# 查看日志
+tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine[-master/-worker/-server].log
 ```
+
+
 
 ### 使用Systemd服务
 
-##### 混合模式
+#### 混合模式
 | 操作 | 命令 |
 |------|------|
 | 启动服务 | `sudo systemctl start seatunnel` |
@@ -240,7 +227,7 @@ ${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
 | 启用自启动 | `sudo systemctl enable seatunnel` |
 | 禁用自启动 | `sudo systemctl disable seatunnel` |
 
-##### 分离模式 - Master节点
+#### 分离模式 - Master节点
 | 操作 | 命令 |
 |------|------|
 | 启动服务 | `sudo systemctl start seatunnel-master` |
@@ -250,7 +237,7 @@ ${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
 | 启用自启动 | `sudo systemctl enable seatunnel-master` |
 | 禁用自启动 | `sudo systemctl disable seatunnel-master` |
 
-##### 分离模式 - Worker节点
+#### 分离模式 - Worker节点
 | 操作 | 命令 |
 |------|------|
 | 启动服务 | `sudo systemctl start seatunnel-worker` |
@@ -264,7 +251,8 @@ ${SEATUNNEL_HOME}/bin/seatunnel-start-cluster.sh restart
 > - 服务管理需要sudo权限
 > - 服务配置文件位于 `/etc/systemd/system/` 目录
 > - 修改配置后需要重新加载：`sudo systemctl daemon-reload`
-> - 查看日志：`sudo journalctl -u seatunnel[-master/-worker]`
+> - 查看启动日志：`sudo journalctl -u seatunnel[-master/-worker] -n 100 --no-pager`
+> - 查看运行日志：`tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine[-master/-worker/-server].log`
 
 ## 🔌 端口配置
 
@@ -322,26 +310,93 @@ WORKER_PORT=5802
 CONNECTORS=jdbc,hive
 
 # JDBC依赖
-jdbc_libs=(
-    "mysql:mysql-connector-java:8.0.27"
-    "org.postgresql:postgresql:42.4.3"
-)
+jdbc_libs="mysql:mysql-connector-java:8.0.27","org.postgresql:postgresql:42.4.3"
 
 # hive依赖
-hive_libs=(
-    "org.apache.hive:hive-exec:3.1.3"
-    "org.apache.hive:hive-service:3.1.3"
-)
+hive_libs="org.apache.hive:hive-exec:3.1.3","org.apache.hive:hive-service:3.1.3"
 ```
 </details>
 
-## 🚀 开机自启动
+## 🚀 systemd管理开机自启动
 
 ### 基础配置
 ```properties
 ENABLE_AUTO_START=true
 ```
 
+## 💫 安装模式
+
+### 在线安装
+```properties
+INSTALL_MODE=online
+PACKAGE_REPO=aliyun
+# 可选：指定下载源
+DOWNLOAD_URL=https://archive.apache.org/dist/seatunnel/${VERSION}/apache-seatunnel-${VERSION}-bin.tar.gz
+```
+
+### 离线安装
+```properties
+INSTALL_MODE=offline
+PACKAGE_PATH=apache-seatunnel-${VERSION}.tar.gz
+```
+
+### 镜像源配置
+支持多种镜像源加速下载：
+- Apache官方源
+- 阿里云镜像
+- 华为云镜像
+
+## 🔄 部署模式
+
+
+### 分离模式 (默认)
+Master和Worker分开部署：
+```properties
+DEPLOY_MODE=separated
+# Master节点
+MASTER_IP=192.168.1.100,192.168.1.101
+# Worker节点 
+WORKER_IPS=192.168.1.102,192.168.1.103
+```
+
+### 混合模式
+所有节点对等部署：
+```properties
+DEPLOY_MODE=hybrid
+# 所有节点IP
+CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
+```
+
+## 🛡️ 安全配置
+
+### 用户权限
+```properties
+# 安装用户(需要sudo权限)
+INSTALL_USER=root
+INSTALL_GROUP=root
+```
+
+### SSH配置
+```properties
+# SSH端口
+SSH_PORT=22
+# 超时设置(秒)
+SSH_TIMEOUT=10
+```
+
+### 自动重试机制
+- 最大重试次数：3次
+- 失败自动回滚
+- 详细错误日志
+
+## 🔍 系统检查
+
+安装前自动检查：
+- Java环境检查
+- 内存要求检查
+- 端口占用检查
+- 依赖组件检查
+- 下载源可用性检查
 
 
 ## ❓ 常见问题
@@ -388,3 +443,4 @@ ENABLE_AUTO_START=true
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request来帮助改进这个安装器！
+
