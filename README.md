@@ -57,7 +57,7 @@ Flink/Spark 模式请自行适配。
 
 ## 快速部署
 
-### 1. 准备安装目录
+### 1. 单节点安装
 ```bash
 export BASE_DIR=/data/seatunnel && \
 export SEATUNNEL_VERSION=2.3.8 && \
@@ -72,15 +72,23 @@ chmod +x install_seatunnel.sh && \
 > - 默认安装目录为 `/data/seatunnel`
 > - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
 
-### 2. 多节点执行-配置SSH免密登录
+### 2. 多节点安装
+
+#### 2.1 配置SSH免密登录
 ```bash
 ssh-keygen -t rsa
 ssh-copy-id user@node1
 ssh-copy-id user@node2
 # ... 对所有节点执行
 ```
+#### 2.2 下载安装脚本
+```bash
+mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
+wget https://github.com/LeonYoah/seatunnel-installer/raw/main/install_seatunnel.sh
+wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties
+```
 
-### 3. 配置节点IP（默认是localhost）
+#### 2.3 配置节点IP
 修改 config.properties 中的以下部分：
 ```properties
 # ==== 分离模式 ====
@@ -91,12 +99,12 @@ WORKER_IPS=192.168.1.102,192.168.1.103,192.168.1.104
 CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
 ```
 
-### 4. 执行安装
+#### 2.4 执行安装
 ```bash
 ./install_seatunnel.sh
 ```
 
-### 5. 卸载 SeaTunnel
+### 3. 卸载 SeaTunnel
 如需卸载 SeaTunnel，请执行以下命令：
 ```bash
 # 下载卸载脚本 ，注意！！改脚本需要配合config.properties使用
