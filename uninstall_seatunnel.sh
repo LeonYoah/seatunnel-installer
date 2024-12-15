@@ -18,6 +18,9 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
     exit 1
 }
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
+}
 
 # 读取配置文件
 read_config() {
@@ -55,7 +58,7 @@ stop_services() {
         # 混合模式：停止所有节点的服务
         for node in "${ALL_NODES[@]}"; do
             log_info "停止节点 $node 的服务..."
-            if [ "$node" = "$current_ip" ]; then
+            if [ "$node" = "$current_ip" ] || [ "$node" = "localhost" ]; then
                 # 本地节点
                 if systemctl is-active --quiet seatunnel; then
                     sudo systemctl stop seatunnel
@@ -86,7 +89,7 @@ stop_services() {
         # 停止Master节点
         for master in "${MASTER_IPS[@]}"; do
             log_info "停止Master节点 $master 的服务..."
-            if [ "$master" = "$current_ip" ]; then
+            if [ "$master" = "$current_ip" ] || [ "$master" = "localhost" ]; then
                 # 本地Master节点
                 if systemctl is-active --quiet seatunnel-master; then
                     sudo systemctl stop seatunnel-master
@@ -116,7 +119,7 @@ stop_services() {
         # 停止Worker节点
         for worker in "${WORKER_IPS[@]}"; do
             log_info "停止Worker节点 $worker 的服务..."
-            if [ "$worker" = "$current_ip" ]; then
+            if [ "$worker" = "$current_ip" ] || [ "$worker" = "localhost" ]; then
                 # 本地Worker节点
                 if systemctl is-active --quiet seatunnel-worker; then
                     sudo systemctl stop seatunnel-worker
@@ -179,6 +182,7 @@ clean_environment() {
     
     if [ -f "$user_home/.bashrc" ]; then
         sed -i '/# SEATUNNEL_HOME BEGIN/,/# SEATUNNEL_HOME END/d' "$user_home/.bashrc"
+        sed -i '/# JAVA_HOME BEGIN/,/# JAVA_HOME END/d' "$user_home/.bashrc"
     fi
     
     # 清理远程节点环境变量
@@ -187,14 +191,14 @@ clean_environment() {
     
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
         for node in "${ALL_NODES[@]}"; do
-            if [ "$node" != "$current_ip" ]; then
+            if [ "$node" != "$current_ip" ] && [ "$node" != "localhost" ]; then
                 remote_home=$(ssh -p "$SSH_PORT" "$node" "echo ~$INSTALL_USER")
                 ssh -p "$SSH_PORT" "$node" "sed -i '/# SEATUNNEL_HOME BEGIN/,/# SEATUNNEL_HOME END/d' '$remote_home/.bashrc'"
             fi
         done
     else
         for node in "${WORKER_IPS[@]}"; do
-            if [ "$node" != "$current_ip" ]; then
+            if [ "$node" != "$current_ip" ] && [ "$node" != "localhost" ]; then
                 remote_home=$(ssh -p "$SSH_PORT" "$node" "echo ~$INSTALL_USER")
                 ssh -p "$SSH_PORT" "$node" "sed -i '/# SEATUNNEL_HOME BEGIN/,/# SEATUNNEL_HOME END/d' '$remote_home/.bashrc'"
             fi
@@ -216,13 +220,13 @@ remove_files() {
     
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
         for node in "${ALL_NODES[@]}"; do
-            if [ "$node" != "$current_ip" ]; then
+            if [ "$node" != "$current_ip" ] && [ "$node" != "localhost" ]; then
                 ssh -p "$SSH_PORT" "$node" "sudo rm -rf '$BASE_DIR'"
             fi
         done
     else
         for node in "${WORKER_IPS[@]}"; do
-            if [ "$node" != "$current_ip" ]; then
+            if [ "$node" != "$current_ip" ] && [ "$node" != "localhost" ]; then
                 ssh -p "$SSH_PORT" "$node" "sudo rm -rf '$BASE_DIR'"
             fi
         done

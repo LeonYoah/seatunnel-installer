@@ -2,6 +2,36 @@
 
 [![Apache License 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
+## 项目初衷
+
+这个一键安装工具的设计初衷是:
+
+1. 🎯 **降低使用门槛**
+   - 面向小白用户,提供最简单的部署方式
+   - 自动处理各种依赖和配置,避免繁琐的手动设置
+   - 提供清晰的中文提示和引导
+
+2. 🚀 **快速体验新版本**
+   - 让开发者能快速部署和体验最新版SeaTunnel
+   - 便于评估是否需要升级现有环境
+   - 支持多种部署模式,方便测试验证
+
+3. 💡 **简化集群部署**
+   - 自动化处理集群配置和节点分发
+   - 内置最佳实践配置
+   - 提供完整的部署检查和验证
+
+4. 🛠 **开箱即用**
+   - 预置常用连接器和依赖
+   - 自动配置开机自启
+   - 提供完整的运维命令
+
+> 💡 提示：本工具特别适合以下场景:
+> - 快速搭建测试/开发环境
+> - 评估新版本特性
+> - 临时部署验证概念
+> - 学习和熟悉SeaTunnel
+
 SeaTunnel 是一个高性能、分布式的数据集成平台，支持实时和批量数据同步。本指南将帮助您快速完成 SeaTunnel 的 Zeta 集群安装部署。
 Flink/Spark 模式请自行适配。
 
@@ -29,10 +59,13 @@ Flink/Spark 模式请自行适配。
 
 ### 1. 准备安装目录
 ```bash
-mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/install_seatunnel.sh
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties
-chmod +x install_seatunnel.sh
+export BASE_DIR=/data/seatunnel && \
+export SEATUNNEL_VERSION=2.3.8 && \
+mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && \
+wget https://github.com/LeonYoah/seatunnel-installer/raw/main/install_seatunnel.sh && \
+wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties && \
+chmod +x install_seatunnel.sh && \
+./install_seatunnel.sh
 ```
 
 > 💡 提示：
@@ -118,6 +151,12 @@ STORAGE_BUCKET=your_bucket
 ```
 
 > ⚠️ 注意：默认的LOCAL_FILE存储模式只适用于单节点测试环境，不建议在生产环境使用。
+
+### 系统要求
+
+#### Java环境
+- 支持 Java 8 或 Java 11
+- 在线安装模式下,如未安装Java会提示自动安装:
 
 ## ✨ 功能特性
 
