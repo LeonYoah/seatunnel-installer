@@ -7,6 +7,9 @@ set -e
 EXEC_PATH=$(cd "$(dirname "$0")" && pwd)
 echo "执行路径: $EXEC_PATH"
 
+# 记录开始时间
+START_TIME=$(date +%s)
+
 # 日志文件路径
 LOG_DIR="$EXEC_PATH/seatunnel-install-log-${INSTALL_USER:-$(whoami)}"
 LOG_FILE="$LOG_DIR/install.log"
@@ -419,7 +422,7 @@ create_temp_file() {
     local temp_dir="$LOG_DIR/temp"
     local temp_file
     
-    # 创建临时目录���如果不存在）
+    # 创建临时目录,如果不存在）
     if [ ! -d "$temp_dir" ]; then
         mkdir -p "$temp_dir" || log_error "无法创建临时目录: $temp_dir"
         chmod 700 "$temp_dir"
@@ -885,7 +888,7 @@ check_services() {
         local service_running=false
         
         if command -v nc >/dev/null 2>&1; then
-            # 使用nc命令
+            # 使用nc命令检查
             log_info "使用nc命令检查节点 $node:$port 的服务状态..."
             if [ "$node" = "127.0.0.1" ] || [ "$node" = "$(hostname -I | awk '{print $1}')" ]; then
                 # 本地检查使用localhost
@@ -929,7 +932,7 @@ check_services() {
     fi
 }
 
-# 配置检查点存储
+# 配置检查点���储
 configure_checkpoint() {
     # 计算实际节点数（排除localhost）
     local actual_node_count=0
@@ -1048,16 +1051,130 @@ disable.cache: true"
     replace_yaml_section "$SEATUNNEL_HOME/config/seatunnel.yaml" "plugin-config:" 10 "$content"
 }
 
+# 检查Java环境
+check_java() {
+    local node=$1
+    local is_remote=$2
+    
+    log_info "检查节点 $node 的Java环境..."
+    
+    # 本地节点检查
+    if [ "$is_remote" = "false" ]; then
+        # 检查java命令是否存在
+        if ! command -v java >/dev/null 2>&1; then
+            log_warning "本地节点未找到Java环境"
+            
+            if [ "$INSTALL_MODE" != "online" ]; then
+                log_error "离线模式下无法自动安装Java，请手动安装Java 8或Java 11"
+            fi
+            
+            # 提示用户选择安装版本
+            echo -e "\n${YELLOW}请选择要安装的Java版本:${NC}"
+            echo "1) Java 8 (推荐)"
+            echo "2) Java 11"
+            echo "3) 取消安装"
+            
+            read -r -p "请输入选项 [1-3]: " choice
+            
+            case $choice in
+                1)
+                    install_java "8"
+                    ;;
+                2)
+                    install_java "11"
+                    ;;
+                3)
+                    log_error "用户取消安装"
+                    ;;
+                *)
+                    log_error "无效的选项"
+                    ;;
+            esac
+        fi
+        
+        # 获取本地Java版本
+        local java_version
+        java_version=$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}')
+        if [ -z "$java_version" ]; then
+            log_error "无法获取本地Java版本"
+        fi
+        
+        # 检查Java版本是否为8或11
+        if [[ $java_version == 1.8* ]]; then
+            log_info "节点 $node 检测到Java 8: $java_version"
+        elif [[ $java_version == 11* ]]; then
+            log_info "节点 $node 检测到Java 11: $java_version"
+        else
+            log_error "节点 $node 不支持的Java版本: $java_version，SeaTunnel需要Java 8或Java 11"
+        fi
+    else
+        # 远程节点检查
+        # 添加超时控制
+        local TIMEOUT=30
+        
+        # 先检查java命令是否存在
+        if ! timeout $TIMEOUT ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "command -v java" >/dev/null 2>&1; then
+            log_warning "节点 $node 未找到Java环境"
+            if [ "$INSTALL_MODE" != "online" ]; then
+                log_error "离线模式下无法自动安装Java，请在节点 $node 上手动安装Java 8或Java 11"
+            fi
+            # 在线模式下自动安装Java 8
+            log_info "在节点 $node 上自动安装Java 8..."
+            install_java "8" "$node"
+            return
+        fi
+
+        # 获取远程Java版本输出
+        local java_version_output
+        java_version_output=$(timeout $TIMEOUT ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "java -version 2>&1")
+        local exit_code=$?
+
+        # 检查是否超时
+        if [ $exit_code = 124 ]; then
+            log_error "检查节点 $node 的Java环境超时(${TIMEOUT}秒)"
+            return 1
+        fi
+
+        # 在本地解析Java版本
+        local java_version
+        java_version=$(echo "$java_version_output" | head -n 1 | awk -F '"' '{print $2}')
+
+        if [ -z "$java_version" ]; then
+            log_error "无法获取节点 $node 的Java版本"
+            return 1
+        fi
+
+        # 在本地检查版本兼容性
+        if [[ $java_version == 1.8* ]]; then
+            log_info "节点 $node 检测到Java 8: $java_version"
+        elif [[ $java_version == 11* ]]; then
+            log_info "节点 $node 检测到Java 11: $java_version"
+        else
+            log_error "节点 $node 不支持的Java版本: $java_version，SeaTunnel需要Java 8或Java 11"
+        fi
+    fi
+}
+
 # 安装Java
 install_java() {
     local version=$1
-    local download_url
-    local java_package
+    local node=${2:-"localhost"}
     local java_home="${BASE_DIR}/java"
+    local is_remote=false
+    
+    # 检查是否是远程节点
+    if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
+        is_remote=true
+    fi
     
     # 检测系统架构
     local arch
-    arch=$(uname -m)
+    if [ "$is_remote" = true ]; then
+        arch=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "uname -m")
+    else
+        arch=$(uname -m)
+    fi
+    
     case "$arch" in
         x86_64)
             arch_suffix="x64"
@@ -1070,7 +1187,12 @@ install_java() {
             ;;
     esac
     
-    log_info "开始安装Java $version, 系统架构: $arch"
+    log_info "开始在节点 $node 上安装Java $version, 系统架构: $arch"
+    
+    # 构建下载URL和包名
+    local download_url
+    local java_package
+    local java_dir
     
     case $version in
         "8")
@@ -1115,131 +1237,75 @@ install_java() {
     fi
     
     # 创建Java安装目录
-    mkdir -p "$java_home"
-    
-    # 解压安装包
-    log_info "解压Java安装包..."
-    tar -zxf "$java_package" -C "$java_home"
-    
-    # 获取实际解压后的目录名
-    local actual_java_dir
-    actual_java_dir=$(ls -d "$java_home"/*/ | head -1 | xargs basename)
-    log_info "Java解压目录: $actual_java_dir"
+    if [ "$is_remote" = true ]; then
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "mkdir -p $java_home"
+        scp -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$DOWNLOAD_DIR/$java_package" "${INSTALL_USER}@${node}:$java_home/"
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "cd $java_home && tar -zxf $java_package && rm -f $java_package"
+    else
+        mkdir -p "$java_home"
+        tar -zxf "$java_package" -C "$java_home"
+    fi
     
     # 设置权限
-    chown -R "$INSTALL_USER:$INSTALL_GROUP" "$java_home"
-    chmod -R 755 "$java_home"
-    
-    # 获取用户home目录
-    local user_home
-    if command -v getent >/dev/null 2>&1; then
-        user_home=$(getent passwd "$INSTALL_USER" | cut -d: -f6)
+    if [ "$is_remote" = true ]; then
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "chown -R $INSTALL_USER:$INSTALL_GROUP $java_home && chmod -R 755 $java_home"
     else
-        user_home=$(eval echo ~"$INSTALL_USER")
+        chown -R "$INSTALL_USER:$INSTALL_GROUP" "$java_home"
+        chmod -R 755 "$java_home"
     fi
     
-    # 配置环境变量到用户的.bashrc
-    log_info "配置Java环境变量..."
-    local bashrc_file="$user_home/.bashrc"
-    
-    # 删除已存在的Java配置
-    sed -i '/# JAVA_HOME BEGIN/,/# JAVA_HOME END/d' "$bashrc_file"
-    
-    # 添加新的Java配置
-    cat >> "$bashrc_file" << EOF
+    # 配置环境变量
+    local bashrc_content="
 # JAVA_HOME BEGIN
-export JAVA_HOME=$java_home/$actual_java_dir
+export JAVA_HOME=$java_home/$java_dir
 export PATH=\$JAVA_HOME/bin:\$PATH
-# JAVA_HOME END
-EOF
+# JAVA_HOME END"
     
-    # 使环境变量生效
-    export JAVA_HOME="$java_home/$actual_java_dir"
-    export PATH="$JAVA_HOME/bin:$PATH"
+    if [ "$is_remote" = true ]; then
+        local remote_home
+        remote_home=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "echo ~$INSTALL_USER")
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "
+            sed -i '/# JAVA_HOME BEGIN/,/# JAVA_HOME END/d' $remote_home/.bashrc
+            echo '$bashrc_content' >> $remote_home/.bashrc
+            source $remote_home/.bashrc"
+    else
+        # 获取用户home目录
+        local user_home
+        if command -v getent >/dev/null 2>&1; then
+            user_home=$(getent passwd "$INSTALL_USER" | cut -d: -f6)
+        else
+            user_home=$(eval echo ~"$INSTALL_USER")
+        fi
+        
+        # 删除已存在的Java配置
+        sed -i '/# JAVA_HOME BEGIN/,/# JAVA_HOME END/d' "$user_home/.bashrc"
+        echo "$bashrc_content" >> "$user_home/.bashrc"
+        
+        # 使环境变量生效
+        export JAVA_HOME="$java_home/$java_dir"
+        export PATH="$JAVA_HOME/bin:$PATH"
+    fi
     
     # 验证安装
-    if java -version 2>&1 | grep -q "version"; then
-        log_success "Java $version 安装成功"
-        
-        # 清理安装文件
-        rm -f "$DOWNLOAD_DIR/$java_package"
-        
-        # 分发到其他节点
-        if [ "$DEPLOY_MODE" != "hybrid" ]; then
-            for node in "${WORKER_IPS[@]}"; do
-                # 跳过localhost和当前节点
-                if [ "$node" = "localhost" ] || [ "$node" = "$(hostname -I | awk '{print $1}')" ]; then
-                    log_info "跳过本地节点: $node"
-                    continue
-                fi
-                
-                log_info "分发Java到 $node..."
-                ssh_with_retry "$node" "mkdir -p $java_home"
-                scp_with_retry "$java_home/$actual_java_dir" "$node" "$java_home/"
-                ssh_with_retry "$node" "chown -R $INSTALL_USER:$INSTALL_GROUP $java_home && chmod -R 755 $java_home"
-                
-                # 配置远程节点的环境变量
-                ssh_with_retry "$node" "sed -i '/# JAVA_HOME BEGIN/,/# JAVA_HOME END/d' ~/.bashrc && \
-                    echo '# JAVA_HOME BEGIN' >> ~/.bashrc && \
-                    echo 'export JAVA_HOME=$java_home/$actual_java_dir' >> ~/.bashrc && \
-                    echo 'export PATH=\$JAVA_HOME/bin:\$PATH' >> ~/.bashrc && \
-                    echo '# JAVA_HOME END' >> ~/.bashrc"
-            done
+    local verify_cmd="java -version"
+    if [ "$is_remote" = true ]; then
+        if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "$verify_cmd" 2>&1 | grep -q "version"; then
+            log_success "节点 $node 的Java $version 安装成功"
+        else
+            log_error "节点 $node 的Java安装失败"
         fi
     else
-        log_error "Java安装失败"
-    fi
-}
-# 在主脚本开头添加Java版本检查函数
-check_java() {
-    log_info "检查Java环境..."
-    
-    # 检查java命令是否存在
-    if ! command -v java >/dev/null 2>&1; then
-        log_warning "未找到Java环境"
-        
-        if [ "$INSTALL_MODE" != "online" ]; then
-            log_error "离线模式下无法自动安装Java，请手动安装Java 8或Java 11"
+        if $verify_cmd 2>&1 | grep -q "version"; then
+            log_success "本地节点Java $version 安装成功"
+        else
+            log_error "本地节点Java安装失败"
         fi
-        
-        # 提示用户选择安装版本
-        echo -e "\n${YELLOW}请选择要安装的Java版本:${NC}"
-        echo "1) Java 8 (推荐)"
-        echo "2) Java 11"
-        echo "3) 取消安装"
-        
-        read -r -p "请输入选项 [1-3]: " choice
-        
-        case $choice in
-            1)
-                install_java "8"
-                ;;
-            2)
-                install_java "11"
-                ;;
-            3)
-                log_error "用户取消安装"
-                ;;
-            *)
-                log_error "无效的选项"
-                ;;
-        esac
     fi
     
-    # 获取Java版本
-    local java_version
-    java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-    
-    # 检查Java版本是否为8或11
-    if [[ $java_version == 1.8* ]]; then
-        log_info "检测到Java 8: $java_version"
-    elif [[ $java_version == 11* ]]; then
-        log_info "检测到Java 11: $java_version"
-    else
-        log_error "不支持的Java版本: $java_version，SeaTunnel需要Java 8或Java 11"
-    fi
-    log_info "JAVA_HOME: $JAVA_HOME"
+    # 清理安装文件
+    rm -f "$DOWNLOAD_DIR/$java_package"
 }
+
 
 # 添加依赖检查函数
 check_dependencies() {
@@ -1547,6 +1613,14 @@ install_plugins_and_libs() {
         log_info "跳过连接器和依赖安装"
         return 0
     fi
+
+    # 离线模式下跳过插件下载
+    if [ "$INSTALL_MODE" = "offline" ]; then
+        log_warning "离线安装模式下不支持自动下载插件,如果有需要,请手动将所需插件和依赖放置到以下目录:"
+        log_warning "- 插件目录: $SEATUNNEL_HOME/connectors/"
+        log_warning "- 依���目录: $SEATUNNEL_HOME/lib/"
+        return 0
+    fi
     
     log_info "开始安装插件和依赖..."
     
@@ -1700,7 +1774,7 @@ create_service_file() {
     local hazelcast_config=""
     local jvm_options_file=""
     
-    # 设置配置文件和参数
+    # ���置配置文件和参数
     case "$role" in
         "Hybrid")
             exec_args=""
@@ -2111,9 +2185,17 @@ export PATH=\$PATH:\$SEATUNNEL_HOME/bin
         done
     fi
 }
+
 function show_completion_info(){
+    # 计算安装时长
+    END_TIME=$(date +%s)
+    DURATION=$((END_TIME - START_TIME))
+    MINUTES=$((DURATION / 60))
+    SECONDS=$((DURATION % 60))
+    
     # 添加安装完成后的验证提示
     echo -e "\n${GREEN}SeaTunnel安装完成!${NC}"
+    echo -e "安装总耗时: ${GREEN}${MINUTES}分${SECONDS}秒${NC}"
     echo -e "\n${YELLOW}验证和使用说明:${NC}"
     echo "1. 刷新环境变量:"
     echo -e "${GREEN}source $USER_HOME/.bashrc${NC}"
@@ -2198,8 +2280,10 @@ trace_error() {
     echo -e "${RED}最后10行日志:${NC}"
     tail -n 10 "$LOG_DIR/install.log" 2>/dev/null
     
-    # 调用原有的错误处理
-    handle_error $line_no
+    handle_error $line_no  
+    
+    # 直接退出脚本
+    exit $err
 }
 
 # 设置错误追踪
@@ -2235,80 +2319,445 @@ log_info "脚本参数: $*"
 handle_selinux() {
     log_info "检查SELinux状态..."
     
-    # 检查是否安装了SELinux工具
-    if ! command -v sestatus >/dev/null 2>&1; then
-        log_info "未安装SELinux工具，跳过SELinux配置"
-        return 0
-    fi
-    
-    # 检查SELinux状态
-    local selinux_status
-    selinux_status=$(sestatus | grep "SELinux status" | awk '{print $3}')
-    
-    if [ "$selinux_status" = "enabled" ]; then
-        log_warning "检测到SELinux已启用，这可能会导致权限问题"
-        log_info "正在永久禁用SELinux..."
-        
-        # 修改SELinux配置文件
-        if [ -f "/etc/selinux/config" ]; then
-            sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-            log_info "已修改SELinux配置文件，设置为disabled"
-        fi
-        
-        # 临时禁用SELinux
-        sudo setenforce 0 2>/dev/null || true
-        log_info "已临时禁用SELinux"
-        
-        # 在所有节点上执行相同操作
-        if [ "$DEPLOY_MODE" = "hybrid" ]; then
-            for node in "${ALL_NODES[@]}"; do
-                if [ "$node" = "localhost" ] || [ "$node" = "$(hostname -I | awk '{print $1}')" ]; then
-                    continue
-                fi
-                
-                log_info "在节点 $node 上禁用SELinux..."
-                ssh_with_retry "$node" "
-                    if command -v sestatus >/dev/null 2>&1; then
-                        sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-                        sudo setenforce 0 2>/dev/null || true
-                    fi"
-            done
-        else
-            # 在master节点上禁用SELinux
-            for master in "${MASTER_IPS[@]}"; do
-                if [ "$master" = "localhost" ] || [ "$master" = "$(hostname -I | awk '{print $1}')" ]; then
-                    continue
-                fi
-                
-                log_info "在Master节点 $master 上禁用SELinux..."
-                ssh_with_retry "$master" "
-                    if command -v sestatus >/dev/null 2>&1; then
-                        sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-                        sudo setenforce 0 2>/dev/null || true
-                    fi"
-            done
-            
-            # 在worker节点上禁用SELinux
-            for worker in "${WORKER_IPS[@]}"; do
-                if [ "$worker" = "localhost" ] || [ "$worker" = "$(hostname -I | awk '{print $1}')" ]; then
-                    continue
-                fi
-                
-                log_info "在Worker节点 $worker 上禁用SELinux..."
-                ssh_with_retry "$worker" "
-                    if command -v sestatus >/dev/null 2>&1; then
-                        sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-                        sudo setenforce 0 2>/dev/null || true
-                    fi"
-            done
-        fi
-        
-        log_warning "SELinux已被禁用，如果后续遇到权限问题，请重启相关节点使配置生效"
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        # 混合模式：检查所有节点
+        for node in "${ALL_NODES[@]}"; do
+            if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
+                check_and_handle_selinux "$node" true
+            else 
+                check_and_handle_selinux "localhost" false
+            fi
+        done
     else
-        log_info "SELinux已禁用，无需处理"
+        # 分离模式：检查master和worker节点
+        for master in "${MASTER_IPS[@]}"; do
+            if [ "$master" != "localhost" ] && [ "$master" != "$(hostname -I | awk '{print $1}')" ]; then
+                check_and_handle_selinux "$master" true
+            else 
+                check_and_handle_selinux "localhost" false
+            fi
+        done
+        for worker in "${WORKER_IPS[@]}"; do
+            if [ "$worker" != "localhost" ] && [ "$worker" != "$(hostname -I | awk '{print $1}')" ]; then
+                check_and_handle_selinux "$worker" true
+            else 
+                check_and_handle_selinux "localhost" false
+            fi
+        done
     fi
 }
 
+# 将check_and_handle_selinux提取为独立函数
+check_and_handle_selinux() {
+    local node=$1
+    local is_remote=$2
+    
+    local check_script='
+        if ! command -v sestatus >/dev/null 2>&1; then
+            echo "NO_SELINUX"
+            exit 0
+        fi
+    
+        # 检查SELinux状态
+        if sestatus | grep  "disabled"; then
+            echo "SELINUX_DISABLED"
+            exit 0
+        fi
+        
+        # 检查restorecon和chcon命令
+        if ! command -v restorecon >/dev/null 2>&1 || ! command -v chcon >/dev/null 2>&1; then
+            echo "NO_SELINUX_TOOLS"
+            exit 0
+        fi
+        
+        # 使用restorecon恢复/data/seatunnel目录的安全上下文
+        sudo restorecon -Rv /data/seatunnel >/dev/null 2>&1
+        
+        # 设置Java二进制文件的SELinux上下文
+        if [ -d /data/seatunnel/java ]; then
+            sudo chcon -R -t bin_t /data/seatunnel/java/*/bin/java >/dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                echo "SELINUX_CONTEXT_RESTORED"
+            else
+                echo "JAVA_CONTEXT_FAILED"
+            fi
+        else
+            echo "SELINUX_CONTEXT_RESTORED"
+        fi'
+    
+    if [ "$is_remote" = true ]; then
+        # 远程节点检查
+        local result
+        result=$(execute_remote_script "$node" "$check_script")
+        
+        case "$result" in
+            "NO_SELINUX")
+                log_info "节点 $node 未安装SELinux工具，跳过配置"
+                ;;
+            "SELINUX_DISABLED")
+                log_info "节点 $node SELinux已禁用，跳过配置"
+                ;;
+            "NO_SELINUX_TOOLS")
+                log_warning "节点 $node 未安装restorecon或chcon工具，跳过SELinux配置"
+                ;;
+            "SELINUX_CONTEXT_RESTORED")
+                log_success "节点 $node 的SELinux安全上下文已恢复"
+                ;;
+            "JAVA_CONTEXT_FAILED")
+                log_warning "节点 $node 的Java二进制文件SELinux上下文设置失败"
+                ;;
+            *)
+                log_warning "节点 $node 的SELinux配置未完成: $result"
+                ;;
+        esac
+    else
+        # 本地节点检查
+        if ! command -v sestatus >/dev/null 2>&1; then
+            log_info "本地节点未安装SELinux工具，跳过配置"
+            return 0
+        fi
+        
+        if sestatus | grep "disabled"; then
+            log_info "本地节点SELinux已禁用，跳过配置"
+            return 0
+        fi
+        
+        if ! command -v restorecon >/dev/null 2>&1 || ! command -v chcon >/dev/null 2>&1; then
+            log_warning "本地节点未安装restorecon或chcon工具，跳过SELinux配置"
+            return 0
+        fi
+        
+        # 恢复本地安全上下文
+        sudo restorecon -Rv /data/seatunnel >/dev/null 2>&1
+        
+        # 设置Java二进制文件的SELinux上下文
+        if [ -d /data/seatunnel/java ]; then
+            if sudo chcon -R -t bin_t /data/seatunnel/java/*/bin/java >/dev/null 2>&1; then
+                log_success "本地节点的SELinux安全上下文已恢复，Java二进制文件上下文已设置"
+            else
+                log_warning "本地节点的Java二进制文件SELinux上下文设置失败"
+            fi
+        else
+            log_success "本地节点的SELinux安全上下文已恢复"
+        fi
+    fi
+}
+
+# 添加execute_remote_script函数
+execute_remote_script() {
+    local node=$1
+    local script=$2
+    shift 2  # 移除前两个参数，剩余的都是要传递给脚本的参数
+    local TIMEOUT=10
+    
+    # 创建临时脚本文件，添加参数处理
+    local temp_script="/tmp/remote_script_$RANDOM.sh"
+    {
+        echo '#!/bin/bash'
+        # 将参数数组重建为脚本变量
+        echo 'SCRIPT_ARGS=('
+        printf "'%s' " "$@"
+        echo ')'
+        echo "$script"
+    } > "$temp_script"
+    chmod +x "$temp_script"
+    
+    # 复制脚本到远程节点并执行，添加超时控制
+    if ! timeout $TIMEOUT scp -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$temp_script" "${INSTALL_USER}@${node}:/tmp/" >/dev/null 2>&1; then
+        log_error "向节点 $node 传输脚本失败"
+        rm -f "$temp_script"
+        return 1
+    fi
+    
+    local result
+    result=$(timeout $TIMEOUT ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "bash /tmp/$(basename "$temp_script")")
+    local exit_code=$?
+    
+    # 清理临时文件
+    rm -f "$temp_script"
+    timeout $TIMEOUT ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "rm -f /tmp/$(basename "$temp_script")" >/dev/null 2>&1
+    
+    # 返回结果
+    echo "$result"
+    return $exit_code
+}
+
+# 检查防火墙状态
+check_firewall() {
+    log_info "检查防火墙状态..."
+    
+    check_node_firewall() {
+        local node=$1
+        local is_remote=$2
+        local ports=()
+        local firewall_status_shown=false
+        local ports_shown=false
+        
+        # 根据部署模式确定需要检查的端口
+        if [ "$DEPLOY_MODE" = "hybrid" ]; then
+            ports+=("${HYBRID_PORT:-5801}")
+        else
+            if [[ " ${MASTER_IPS[*]} " =~ " $node " ]]; then
+                ports+=("${MASTER_PORT:-5801}")
+            fi
+            if [[ " ${WORKER_IPS[*]} " =~ " $node " ]]; then
+                ports+=("${WORKER_PORT:-5802}")
+            fi
+        fi
+        
+        # 添加SSH端口
+        ports+=("$SSH_PORT")
+        
+        # 优化端口显示,只在第一次显示
+        if [ ! "$ports_shown" ]; then
+            log_info "检查节点 $node 的端口: ${ports[*]}/tcp"
+            ports_shown=true
+        fi
+
+        local check_script='
+            # 获取传入的端口参数
+            ports=("${SCRIPT_ARGS[@]}")
+            
+            # 检查防火墙状态和端口
+            if command -v systemctl >/dev/null 2>&1; then
+                if systemctl is-active --quiet firewalld; then
+                    # 检查端口是否开放
+                    ports_status=""
+                    for port in "${ports[@]}"; do
+                        if firewall-cmd --list-ports | grep -w "$port/tcp" >/dev/null 2>&1; then
+                            ports_status="${ports_status}${port}:open,"
+                        else
+                            ports_status="${ports_status}${port}:closed,"
+                        fi
+                    done
+                    echo "FIREWALLD_ACTIVE:$ports_status"
+                elif systemctl is-active --quiet ufw; then
+                    # 检查UFW端口状态
+                    ports_status=""
+                    for port in "${ports[@]}"; do
+                        if ufw status | grep -w "$port/tcp.*ALLOW" >/dev/null 2>&1; then
+                            ports_status="${ports_status}${port}:open,"
+                        else
+                            ports_status="${ports_status}${port}:closed,"
+                        fi
+                    done
+                    echo "UFW_ACTIVE:$ports_status"
+                else
+                    echo "FIREWALL_INACTIVE"
+                fi
+            elif command -v service >/dev/null 2>&1; then
+                if service iptables status >/dev/null 2>&1; then
+                    # 检查iptables端口状态
+                    ports_status=""
+                    for port in "${ports[@]}"; do
+                        if iptables -L -n | grep -w "tcp dpt:$port.*ACCEPT" >/dev/null 2>&1; then
+                            ports_status="${ports_status}${port}:open,"
+                        else
+                            ports_status="${ports_status}${port}:closed,"
+                        fi
+                    done
+                    echo "IPTABLES_ACTIVE:$ports_status"
+                else
+                    echo "FIREWALL_INACTIVE"
+                fi
+            else
+                echo "NO_FIREWALL"
+            fi'
+        
+        if [ "$is_remote" = true ]; then
+            # 远程节点检查，传递端口参数
+            local result
+            result=$(execute_remote_script "$node" "$check_script" "${ports[@]}")
+            
+            case "${result%%:*}" in
+                "FIREWALLD_ACTIVE"|"UFW_ACTIVE"|"IPTABLES_ACTIVE")
+                    local firewall_type="${result%%:*}"
+                    local ports_status="${result#*:}"
+                    local closed_ports=()
+                    
+                    # 解析端口状态
+                    IFS=',' read -r -a port_array <<< "$ports_status"
+                    for port_status in "${port_array[@]}"; do
+                        if [[ "$port_status" =~ ([0-9]+):closed ]]; then
+                            closed_ports+=("${BASH_REMATCH[1]}")
+                        fi
+                    done
+                    
+                    if [ ${#closed_ports[@]} -gt 0 ]; then
+                        log_warning "节点 $node 的防火墙已启用，以下端口未开放: ${closed_ports[*]}"
+                        echo -e "\n${YELLOW}请在节点 $node 上执行以下操作之一：${NC}"
+                        echo "1. 关闭防火墙（推荐用于测试环境）："
+                        case "$firewall_type" in
+                            "FIREWALLD_ACTIVE")
+                                echo -e "${GREEN}sudo systemctl stop firewalld && sudo systemctl disable firewalld${NC}"
+                                echo "2. 开放必要端口（推荐用于生产环境）："
+                                for port in "${closed_ports[@]}"; do
+                                    echo -e "${GREEN}sudo firewall-cmd --permanent --add-port=$port/tcp${NC}"
+                                done
+                                echo -e "${GREEN}sudo firewall-cmd --reload${NC}"
+                                ;;
+                            "UFW_ACTIVE")
+                                echo -e "${GREEN}sudo ufw disable${NC}"
+                                echo "2. 开放必要端口（推荐用于生产环境）："
+                                for port in "${closed_ports[@]}"; do
+                                    echo -e "${GREEN}sudo ufw allow $port/tcp${NC}"
+                                done
+                                ;;
+                            "IPTABLES_ACTIVE")
+                                echo -e "${GREEN}sudo service iptables stop && sudo chkconfig iptables off${NC}"
+                                echo "2. 开放必要端口（推荐用于生产环境）："
+                                for port in "${closed_ports[@]}"; do
+                                    echo -e "${GREEN}sudo iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
+                                done
+                                echo -e "${GREEN}sudo service iptables save${NC}"
+                                ;;
+                        esac
+                        return 1
+                    else
+                        log_info "节点 $node 的防火墙已启用，所需端口已开放"
+                    fi
+                    ;;
+                "FIREWALL_INACTIVE"|"NO_FIREWALL")
+                    log_info "节点 $node 的防火墙未启用"
+                    ;;
+                *)
+                    log_warning "节点 $node 的防火墙状态检查失败: $result"
+                    return 1
+                    ;;
+            esac
+        else
+            # 本地节点检查
+            if command -v systemctl >/dev/null 2>&1; then
+                if systemctl is-active --quiet firewalld; then
+                    if [ ! "$firewall_status_shown" ]; then
+                        log_info "检测到防火墙(firewalld)已启用"
+                        firewall_status_shown=true
+                    fi
+                    local closed_ports=()
+                    for port in "${ports[@]}"; do
+                        if ! firewall-cmd --list-ports | grep -w "$port/tcp" >/dev/null 2>&1; then
+                            closed_ports+=("$port")
+                        fi
+                    done
+                    
+                    if [ ${#closed_ports[@]} -gt 0 ]; then
+                        log_warning "本地节点防火墙(firewalld)已启用，以下端口未开放: ${closed_ports[*]}"
+                        echo -e "\n${YELLOW}请执行以下操作之一：${NC}"
+                        echo "1. 关闭防火墙（推荐用于测试环境）："
+                        echo -e "${GREEN}sudo systemctl stop firewalld && sudo systemctl disable firewalld${NC}"
+                        echo "2. 开放必要端口（推荐用于生产环境）："
+                        for port in "${closed_ports[@]}"; do
+                            echo -e "${GREEN}sudo firewall-cmd --permanent --add-port=$port/tcp${NC}"
+                        done
+                        echo -e "${GREEN}sudo firewall-cmd --reload${NC}"
+                        return 1
+                    else
+                        log_info "本地节点防火墙已启用，所需端口已开放"
+                    fi
+                elif systemctl is-active --quiet ufw; then
+                    if [ ! "$firewall_status_shown" ]; then
+                        log_info "检测到防火墙(ufw)已启用"
+                        firewall_status_shown=true
+                    fi
+                    local closed_ports=()
+                    for port in "${ports[@]}"; do
+                        if ! ufw status | grep -w "$port/tcp.*ALLOW"; then
+                            closed_ports+=("$port")
+                        fi
+                    done
+                    
+                    if [ ${#closed_ports[@]} -gt 0 ]; then
+                        log_warning "本地节点防火墙(ufw)已启用，以下端口未开放: ${closed_ports[*]}"
+                        echo -e "\n${YELLOW}请执行以下操作之一：${NC}"
+                        echo "1. 关闭防火墙（推荐用于测试环境）："
+                        echo -e "${GREEN}sudo ufw disable${NC}"
+                        echo "2. 开放必要端口（推荐用于生产环境）："
+                        for port in "${closed_ports[@]}"; do
+                            echo -e "${GREEN}sudo ufw allow $port/tcp${NC}"
+                        done
+                        return 1
+                    else
+                        log_info "本地节点防火墙已启用，所需端口已开放"
+                    fi
+                fi
+            elif command -v service >/dev/null 2>&1; then
+                if service iptables status >/dev/null 2>&1; then
+                    local closed_ports=()
+                    for port in "${ports[@]}"; do
+                        if ! iptables -L -n | grep -q "tcp dpt:$port.*ACCEPT"; then
+                            closed_ports+=("$port")
+                        fi
+                    done
+                    
+                    if [ ${#closed_ports[@]} -gt 0 ]; then
+                        log_warning "本地节点防火墙(iptables)已启用，以下端口未开放: ${closed_ports[*]}"
+                        echo -e "\n${YELLOW}请执行以下操作之一：${NC}"
+                        echo "1. 关闭防火墙（推荐用于测试环境）："
+                        echo -e "${GREEN}sudo service iptables stop && sudo chkconfig iptables off${NC}"
+                        echo "2. 开放必要端口（推荐用于生产环境）："
+                        for port in "${closed_ports[@]}"; do
+                            echo -e "${GREEN}sudo iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
+                        done
+                        echo -e "${GREEN}sudo service iptables save${NC}"
+                        return 1
+                    else
+                        log_info "本地节点防火墙已启用，所需端口已开放"
+                    fi
+                fi
+            fi
+            # 移除重复的日志
+            if [ ! "$firewall_status_shown" ]; then
+                log_info "本地节点防火墙未启用或所需端口已开放"
+            fi
+        fi
+        return 0
+    }
+    
+    local firewall_check_failed=false
+    
+    # 检查所有节点的防火墙状态
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        for node in "${ALL_NODES[@]}"; do
+            if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
+                if ! check_node_firewall "$node" true; then
+                    firewall_check_failed=true
+                fi
+            else
+                if ! check_node_firewall "$node" false; then
+                    firewall_check_failed=true
+                fi
+            fi
+        done
+    else
+        for master in "${MASTER_IPS[@]}"; do
+            if [ "$master" != "localhost" ] && [ "$master" != "$(hostname -I | awk '{print $1}')" ]; then
+                if ! check_node_firewall "$master" true; then
+                    firewall_check_failed=true
+                fi
+            else
+                if ! check_node_firewall "$master" false; then
+                    firewall_check_failed=true
+                fi
+            fi
+        done
+        for worker in "${WORKER_IPS[@]}"; do
+            if [ "$worker" != "localhost" ] && [ "$worker" != "$(hostname -I | awk '{print $1}')" ]; then
+                if ! check_node_firewall "$worker" true; then
+                    firewall_check_failed=true
+                fi
+            else
+                if ! check_node_firewall "$worker" false; then
+                    firewall_check_failed=true
+                fi
+            fi
+        done
+    fi
+    
+    if [ "$firewall_check_failed" = true ]; then
+        echo -e "\n${RED}检测到防火墙问题，请按上述提示处理后再次运行安装脚本${NC}"
+        exit 1
+    fi
+}
 
 # 主函数
 main() {
@@ -2316,9 +2765,39 @@ main() {
     log_info "开始读取配置文件..."
     read_config
     
+    # 检查防火墙状态
+    check_firewall
+    
     # 检查Java环境
-    log_info "开始检查Java环境..."
-    check_java
+    log_info "开始检查所有节点的Java环境..."
+    
+    # 检查节点java环境
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        # 混合模式：检查所有节点
+        for node in "${ALL_NODES[@]}"; do
+            if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
+                check_java "$node" "true"
+            else 
+                check_java "localhost" "false"
+            fi
+        done
+    else
+        # 分离模式：检查master和worker节点
+        for master in "${MASTER_IPS[@]}"; do
+            if [ "$master" != "localhost" ] && [ "$master" != "$(hostname -I | awk '{print $1}')" ]; then
+                check_java "$master" "true"
+            else 
+                check_java "localhost" "false"
+            fi
+        done
+        for worker in "${WORKER_IPS[@]}"; do
+            if [ "$worker" != "localhost" ] && [ "$worker" != "$(hostname -I | awk '{print $1}')" ]; then
+                check_java "$worker" "true"
+            else 
+                check_java "localhost" "false"
+            fi
+        done
+    fi
     
     # 检查系统依赖
     log_info "开始检查系统依赖..."
@@ -2389,7 +2868,6 @@ main() {
     
     # 显示安装完成信息
     show_completion_info
-
 }
 
 # 执行主函数
