@@ -13,11 +13,11 @@ jobs:
       
       - name: Create Release Package
         run: |
-          mkdir dist
-          cp install_seatunnel.sh dist/
-          cp uninstall_seatunnel.sh dist/
-          cp config.properties.template dist/config.properties
-          cd dist
+          mkdir seatunnel-installer-${GITHUB_REF#refs/tags/}
+          cp install_seatunnel.sh seatunnel-installer-${GITHUB_REF#refs/tags/}
+          cp uninstall_seatunnel.sh seatunnel-installer-${GITHUB_REF#refs/tags/}
+          cp config.properties seatunnel-installer-${GITHUB_REF#refs/tags/}
+          cd seatunnel-installer-${GITHUB_REF#refs/tags/}
           tar -czf seatunnel-installer-${GITHUB_REF#refs/tags/}.tar.gz *
           
       - name: Create Release
@@ -25,7 +25,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/seatunnel-installer-${GITHUB_REF#refs/tags/}.tar.gz
+            seatunnel-installer-${GITHUB_REF#refs/tags/}/seatunnel-installer-${GITHUB_REF#refs/tags/}.tar.gz
           draft: false
           prerelease: false
         env:
