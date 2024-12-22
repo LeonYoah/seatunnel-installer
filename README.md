@@ -171,16 +171,21 @@ CLUSTER_NODES=192.168.1.100,192.168.1.101,192.168.1.102
 
 #### 2.4 执行安装
 ```bash
+# 完整安装（含插件）
 ./install_seatunnel.sh
+
+# 仅安装核心组件（不含插件）
+./install_seatunnel.sh --no-plugins
+
+# 在已有安装的seatunnel中更新插件
+./install_seatunnel.sh --install-plugins
 ```
 
 ### 3. 卸载 SeaTunnel
 如需卸载 SeaTunnel，请执行以下命令：
 ```bash
 # 下载卸载脚本 ，注意！！改脚本需要配合config.properties使用
-cd ~/seatunnel-installer
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/uninstall_seatunnel.sh
-chmod +x uninstall_seatunnel.sh
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x uninstall_seatunnel.sh
 
 # 执行卸载
 ./uninstall_seatunnel.sh
