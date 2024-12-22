@@ -98,7 +98,7 @@ cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh
 # 仅安装核心组件（不含插件）
 ./install_seatunnel.sh --no-plugins
 
-# 单独安装/更新插件
+# 在已有安装的seatunnel中更新插件
 ./install_seatunnel.sh --install-plugins
 ```
 
@@ -116,7 +116,7 @@ cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh
 # 仅安装核心组件（不含插件）
 ./install_seatunnel.sh --no-plugins
 
-# 单独安装/更新插件
+# 在已有安装的seatunnel中更新插件
 ./install_seatunnel.sh --install-plugins
 ```
 
