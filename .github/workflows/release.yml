@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # 当推送v开头的tag时触发
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
