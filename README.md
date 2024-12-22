@@ -76,20 +76,29 @@ Flink/Spark 模式请自行适配。
 
 ## 快速部署
 
+## 快速部署
+
 ### 1. 单节点安装
 ```bash
-export BASE_DIR=/data/seatunnel && \
-export SEATUNNEL_VERSION=2.3.8 && \
-mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && \
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/install_seatunnel.sh && \
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties && \
-chmod +x install_seatunnel.sh && \
+# 创建安装目录
+mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
+## 
+# 下载最新发行版
+LATEST_VERSION=$(curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4)
+wget https://github.com/LeonYoah/seatunnel-installer/releases/download/${LATEST_VERSION}/seatunnel-installer-${LATEST_VERSION}.tar.gz  
+
+# 解压安装包
+tar -xzf seatunnel-installer-${LATEST_VERSION}.tar.gz
+
+# 执行安装脚本
+chmod +x install_seatunnel.sh
 ./install_seatunnel.sh
 ```
 
 > 💡 提示：
 > - 默认安装目录为 `/data/seatunnel`
 > - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
+> - 当前最新版本：[![Latest Release](https://img.shields.io/github/v/release/LeonYoah/seatunnel-installer)](https://github.com/LeonYoah/seatunnel-installer/releases/latest)
 
 ### 2. 多节点安装
 
@@ -100,12 +109,18 @@ ssh-copy-id user@node1
 ssh-copy-id user@node2
 # ... 对所有节点执行
 ```
-#### 2.2 下载安装脚本
+
+#### 2.2 下载并解压安装包
 ```bash
+# 创建安装目录
 mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/install_seatunnel.sh
-wget https://github.com/LeonYoah/seatunnel-installer/raw/main/config.properties
-```
+
+# 下载最新发行版
+LATEST_VERSION=$(curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4)
+wget https://github.com/LeonYoah/seatunnel-installer/releases/download/${LATEST_VERSION}/seatunnel-installer-${LATEST_VERSION}.tar.gz
+
+# 解压安装包
+tar -xzf seatunnel-installer-${LATEST_VERSION}.tar.gz
 
 #### 2.3 配置节点IP
 修改 config.properties 中的以下部分：
