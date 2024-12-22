@@ -393,6 +393,12 @@ read_config() {
         MASTER_PORT=${MASTER_PORT:-5801}  # 默认端口5801
         WORKER_PORT=${WORKER_PORT:-5802}  # 默认端口5802
     fi
+    
+    # 读取安全检查配置
+    CHECK_FIREWALL=$(grep "^CHECK_FIREWALL=" "$config_file" | cut -d'=' -f2)
+    CHECK_FIREWALL=${CHECK_FIREWALL:-true}  # 默认为true
+    FIREWALL_CHECK_ACTION=$(grep "^FIREWALL_CHECK_ACTION=" "$config_file" | cut -d'=' -f2)
+    FIREWALL_CHECK_ACTION=${FIREWALL_CHECK_ACTION:-error}  # 默认为error
 }
 
 # 检查用户配置
@@ -2516,6 +2522,13 @@ execute_remote_script() {
 
 # 检查防火墙状态
 check_firewall() {
+    # 转换为小写进行比较
+    local check_firewall_lower=$(echo "$CHECK_FIREWALL" | tr '[:upper:]' '[:lower:]')
+    if [ "$check_firewall_lower" = "false" ]; then
+        log_info "已禁用防火墙检查"
+        return 0
+    fi
+    
     log_info "检查防火墙状态..."
     
     check_node_firewall() {
@@ -2786,8 +2799,14 @@ check_firewall() {
     fi
     
     if [ "$firewall_check_failed" = true ]; then
-        echo -e "\n${RED}检测到防火墙问题，请按上述提示处理后再次运行安装脚本${NC}"
-        exit 1
+        # 转换为小写进行比较
+        local action_lower=$(echo "$FIREWALL_CHECK_ACTION" | tr '[:upper:]' '[:lower:]')
+        if [ "$action_lower" = "error" ]; then
+            echo -e "\n${RED}检测到防火墙问题，请按上述提示处理后再次运行安装脚本${NC}"
+            exit 1
+        else
+            log_warning "检测到防火墙配置问题，但已配置为仅警告模式，继续安装..."
+        fi
     fi
 }
 
