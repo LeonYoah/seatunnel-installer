@@ -11,22 +11,28 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
+      - name: Set Release Version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      
       - name: Create Release Package
         run: |
-          mkdir seatunnel-installer-${GITHUB_REF#refs/tags/}
-          cp install_seatunnel.sh seatunnel-installer-${GITHUB_REF#refs/tags/}
-          cp uninstall_seatunnel.sh seatunnel-installer-${GITHUB_REF#refs/tags/}
-          cp config.properties seatunnel-installer-${GITHUB_REF#refs/tags/}
-          cd seatunnel-installer-${GITHUB_REF#refs/tags/}
-          tar -czf seatunnel-installer-${GITHUB_REF#refs/tags/}.tar.gz *
+          mkdir dist
+          cp install_seatunnel.sh dist/
+          cp uninstall_seatunnel.sh dist/
+          cp config.properties dist/
+          cd dist
+          tar -czf "../seatunnel-installer-${{ env.VERSION }}.tar.gz" *
+          cd ..
           
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            seatunnel-installer-${GITHUB_REF#refs/tags/}/seatunnel-installer-${GITHUB_REF#refs/tags/}.tar.gz
+          files: seatunnel-installer-${{ env.VERSION }}.tar.gz
           draft: false
           prerelease: false
+          body_path: CHANGELOG.md
+          generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
