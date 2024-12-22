@@ -481,12 +481,14 @@ cleanup_temp_files() {
 # 默认使用自动选择模式
 FORCE_SED=false
 ONLY_INSTALL_PLUGINS=false
+NO_PLUGINS=false
 
 # 解析命令行参数
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --force-sed) FORCE_SED=true ;;
         --install-plugins) ONLY_INSTALL_PLUGINS=true ;;
+        --no-plugins) NO_PLUGINS=true ;;
         *) log_error "未知参数: $1" ;;
     esac
     shift
@@ -1609,7 +1611,7 @@ EOF
 # 安装插件和依赖库
 install_plugins_and_libs() {
     # 检查是否需要安装连接器
-    if [ "${INSTALL_CONNECTORS}" != "true" ]; then
+    if [ "$NO_PLUGINS" = true ] || [ "${INSTALL_CONNECTORS}" != "true" ]; then
         log_info "跳过连接器和依赖安装"
         return 0
     fi
@@ -1618,7 +1620,7 @@ install_plugins_and_libs() {
     if [ "$INSTALL_MODE" = "offline" ]; then
         log_warning "离线安装模式下不支持自动下载插件,如果有需要,请手动将所需插件和依赖放置到以下目录:"
         log_warning "- 插件目录: $SEATUNNEL_HOME/connectors/"
-        log_warning "- 依���目录: $SEATUNNEL_HOME/lib/"
+        log_warning "- 依赖目录: $SEATUNNEL_HOME/lib/"
         return 0
     fi
     
@@ -2765,6 +2767,29 @@ main() {
     log_info "开始读取配置文件..."
     read_config
     
+    # 检查参数冲突
+    if [ "$NO_PLUGINS" = true ] && [ "$ONLY_INSTALL_PLUGINS" = true ]; then
+        log_error "参数冲突: --no-plugins 和 --install-plugins 不能同时使用"
+    fi
+    
+    # 如果是仅安装插件模式
+    if [ "$ONLY_INSTALL_PLUGINS" = true ]; then
+        log_info "仅安装/更新插件模式..."
+        # 检查SEATUNNEL_HOME是否存在
+        if [ ! -d "$SEATUNNEL_HOME" ]; then
+            log_error "SeaTunnel安装目录不存在: $SEATUNNEL_HOME"
+        fi
+        install_plugins_and_libs
+        log_success "插件安装/更新完成"
+        exit 0
+    fi
+    
+    # 如果指定了--no-plugins，覆盖配置文件中的设置
+    if [ "$NO_PLUGINS" = true ]; then
+        INSTALL_CONNECTORS=false
+        log_info "命令行参数指定不安装插件，已覆盖配置文件设置"
+    fi
+
     # 检查防火墙状态
     check_firewall
     

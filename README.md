@@ -90,7 +90,16 @@ Flink/Spark 模式请自行适配。
 curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4 | xargs -I {} sh -c 'mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && wget https://github.com/LeonYoah/seatunnel-installer/archive/refs/tags/{}.tar.gz -O- | tar -xz'
 
 # 第二步：进入目录并执行安装
-cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh && ./install_seatunnel.sh
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh
+
+# 完整安装（含插件）
+./install_seatunnel.sh
+
+# 仅安装核心组件（不含插件）
+./install_seatunnel.sh --no-plugins
+
+# 单独安装/更新插件
+./install_seatunnel.sh --install-plugins
 ```
 
 #### 方式二：Gitee下载（国内推荐）
@@ -99,12 +108,23 @@ cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh 
 curl -s https://gitee.com/api/v5/repos/lyb173/seatunnel-installer/releases/latest | grep -o '"tag_name":"[^"]*' | cut -d'"' -f4 | xargs -I {} sh -c 'mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && wget https://gitee.com/lyb173/seatunnel-installer/repository/archive/{}.tar.gz -O- | tar -xz'
 
 # 第二步：进入目录并执行安装
-cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh && ./install_seatunnel.sh
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh
+
+# 完整安装（含插件）
+./install_seatunnel.sh
+
+# 仅安装核心组件（不含插件）
+./install_seatunnel.sh --no-plugins
+
+# 单独安装/更新插件
+./install_seatunnel.sh --install-plugins
 ```
 
 > 💡 提示：
 > - 默认安装目录为 `/data/seatunnel`
 > - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
+> - `--no-plugins`: 仅安装核心组件，不安装任何插件
+> - `--install-plugins`: 单独安装或更新插件，可用于已安装环境
 > - GitHub最新版本：[![Latest Release](https://img.shields.io/github/v/release/LeonYoah/seatunnel-installer)](https://github.com/LeonYoah/seatunnel-installer/releases/latest)
 > - Gitee仓库：[![Gitee](https://img.shields.io/badge/Gitee-Repository-red)](https://gitee.com/lyb173/seatunnel-installer/releases)
 
