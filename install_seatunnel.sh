@@ -60,7 +60,18 @@ declare -A PLUGIN_REPOS=(
 handle_error() {
     local exit_code=$?
     local line_number=$1
+    # 避免递归错误
+    if [ "${IN_ERROR_HANDLER:-0}" -eq 1 ]; then
+        echo "致命错误: 在错误处理过程中发生错误"
+        exit 1
+    fi
+    export IN_ERROR_HANDLER=1
+    
     log_error "脚本在第 $line_number 行发生错误 (退出码: $exit_code)"
+    
+    # 清理并退出
+    cleanup
+    exit $exit_code
 }
 
 # 设置错误处理
@@ -69,6 +80,12 @@ trap 'handle_error ${LINENO}' ERR
 # 增强的清理函数
 cleanup() {
     local exit_code=$?
+    # 避免重复清理
+    if [ "${IN_CLEANUP:-0}" -eq 1 ]; then
+        return
+    fi
+    export IN_CLEANUP=1
+    
     log_info "开始清理..."
     
     # 清理临时文件
@@ -376,6 +393,12 @@ read_config() {
         MASTER_PORT=${MASTER_PORT:-5801}  # 默认端口5801
         WORKER_PORT=${WORKER_PORT:-5802}  # 默认端口5802
     fi
+    
+    # 读取安全检查配置
+    CHECK_FIREWALL=$(grep "^CHECK_FIREWALL=" "$config_file" | cut -d'=' -f2)
+    CHECK_FIREWALL=${CHECK_FIREWALL:-true}  # 默认为true
+    FIREWALL_CHECK_ACTION=$(grep "^FIREWALL_CHECK_ACTION=" "$config_file" | cut -d'=' -f2)
+    FIREWALL_CHECK_ACTION=${FIREWALL_CHECK_ACTION:-error}  # 默认为error
 }
 
 # 检查用户配置
@@ -1700,9 +1723,11 @@ download_artifact() {
     local type=$3
     local retry_count=0
     local download_success=false
+    local max_retries=3
+    local retry_delay=2
     
-    while [ $retry_count -lt $retries ]; do
-        log_info "下载尝试 $((retry_count + 1))/$retries"
+    while [ $retry_count -lt $max_retries ]; do
+        log_info "下载尝试 $((retry_count + 1))/$max_retries"
         
         # 构建下载URL
         local download_url
@@ -1753,11 +1778,16 @@ download_artifact() {
         fi
         
         retry_count=$((retry_count + 1))
-        [ $retry_count -lt $retries ] && log_warning "下载失败，等待重试..." && sleep 3
+        if [ $retry_count -lt $max_retries ]; then
+            log_warning "下载失败，等待 ${retry_delay} 秒后重试..."
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))  # 指数退避
+        fi
     done
     
     if [ "$download_success" != "true" ]; then
-        log_error "下载失败: $download_url，已重试 $retries 次"
+        log_error "下载失败: $download_url，已重试 $max_retries 次"
+        return 1
     fi
 }
 
@@ -2261,6 +2291,13 @@ trace_error() {
     local line_no=$1
     local bash_command=$2
     
+    # 避免递归错误
+    if [ "${IN_ERROR_HANDLER:-0}" -eq 1 ]; then
+        echo "致命错误: 在错误处理过程中发生错误"
+        exit 1
+    fi
+    export IN_ERROR_HANDLER=1
+    
     echo -e "\n${RED}[ERROR TRACE]${NC} $(date '+%Y-%m-%d %H:%M:%S')"
     echo -e "${RED}错误码:${NC} $err"
     echo -e "${RED}错误行号:${NC} $line_no"
@@ -2282,9 +2319,8 @@ trace_error() {
     echo -e "${RED}最后10行日志:${NC}"
     tail -n 10 "$LOG_DIR/install.log" 2>/dev/null
     
-    handle_error $line_no  
-    
-    # 直接退出脚本
+    # 清理并退出
+    cleanup
     exit $err
 }
 
@@ -2486,6 +2522,13 @@ execute_remote_script() {
 
 # 检查防火墙状态
 check_firewall() {
+    # 转换为小写进行比较
+    local check_firewall_lower=$(echo "$CHECK_FIREWALL" | tr '[:upper:]' '[:lower:]')
+    if [ "$check_firewall_lower" = "false" ]; then
+        log_info "已禁用防火墙检查"
+        return 0
+    fi
+    
     log_info "检查防火墙状态..."
     
     check_node_firewall() {
@@ -2756,8 +2799,14 @@ check_firewall() {
     fi
     
     if [ "$firewall_check_failed" = true ]; then
-        echo -e "\n${RED}检测到防火墙问题，请按上述提示处理后再次运行安装脚本${NC}"
-        exit 1
+        # 转换为小写进行比较
+        local action_lower=$(echo "$FIREWALL_CHECK_ACTION" | tr '[:upper:]' '[:lower:]')
+        if [ "$action_lower" = "error" ]; then
+            echo -e "\n${RED}检测到防火墙问题，请按上述提示处理后再次运行安装脚本${NC}"
+            exit 1
+        else
+            log_warning "检测到防火墙配置问题，但已配置为仅警告模式，继续安装..."
+        fi
     fi
 }
 
