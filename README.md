@@ -76,29 +76,31 @@ Flink/Spark 模式请自行适配。
 
 ## 快速部署
 
-## 快速部署
-
 ### 1. 单节点安装
+
+#### 方式一：GitHub下载（国外推荐）
 ```bash
-# 创建安装目录
-mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
-## 
-# 下载最新发行版
-LATEST_VERSION=$(curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4)
-wget https://github.com/LeonYoah/seatunnel-installer/releases/download/${LATEST_VERSION}/seatunnel-installer-${LATEST_VERSION}.tar.gz  
+# 第一步：下载并解压
+curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4 | xargs -I {} sh -c 'mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && wget https://github.com/LeonYoah/seatunnel-installer/archive/refs/tags/{}.tar.gz -O- | tar -xz'
 
-# 解压安装包
-tar -xzf seatunnel-installer-${LATEST_VERSION}.tar.gz
+# 第二步：进入目录并执行安装
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh && ./install_seatunnel.sh
+```
 
-# 执行安装脚本
-chmod +x install_seatunnel.sh
-./install_seatunnel.sh
+#### 方式二：Gitee下载（国内推荐）
+```bash
+# 第一步：下载并解压
+curl -s https://gitee.com/api/v5/repos/lyb173/seatunnel-installer/releases/latest | grep -o '"tag_name":"[^"]*' | cut -d'"' -f4 | xargs -I {} sh -c 'mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && wget https://gitee.com/lyb173/seatunnel-installer/repository/archive/{}.tar.gz -O- | tar -xz'
+
+# 第二步：进入目录并执行安装
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh && ./install_seatunnel.sh
 ```
 
 > 💡 提示：
 > - 默认安装目录为 `/data/seatunnel`
 > - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
-> - 当前最新版本：[![Latest Release](https://img.shields.io/github/v/release/LeonYoah/seatunnel-installer)](https://github.com/LeonYoah/seatunnel-installer/releases/latest)
+> - GitHub最新版本：[![Latest Release](https://img.shields.io/github/v/release/LeonYoah/seatunnel-installer)](https://github.com/LeonYoah/seatunnel-installer/releases/latest)
+> - Gitee仓库：[![Gitee](https://img.shields.io/badge/Gitee-Repository-red)](https://gitee.com/lyb173/seatunnel-installer/releases)
 
 ### 2. 多节点安装
 
@@ -111,16 +113,24 @@ ssh-copy-id user@node2
 ```
 
 #### 2.2 下载并解压安装包
+
+##### 方式一：GitHub下载（国外推荐）
 ```bash
-# 创建安装目录
-mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer
+# 第一步：下载并解压
+curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4 | xargs -I {} sh -c 'mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && wget https://github.com/LeonYoah/seatunnel-installer/archive/refs/tags/{}.tar.gz -O- | tar -xz'
 
-# 下载最新发行版
-LATEST_VERSION=$(curl -s https://api.github.com/repos/LeonYoah/seatunnel-installer/releases/latest | grep "tag_name" | cut -d '"' -f 4)
-wget https://github.com/LeonYoah/seatunnel-installer/releases/download/${LATEST_VERSION}/seatunnel-installer-${LATEST_VERSION}.tar.gz
+# 第二步：进入目录修改config.properties
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh && vim config.properties
+```
 
-# 解压安装包
-tar -xzf seatunnel-installer-${LATEST_VERSION}.tar.gz
+##### 方式二：Gitee下载（国内推荐）
+```bash
+# 第一步：下载并解压
+curl -s https://gitee.com/api/v5/repos/lyb173/seatunnel-installer/releases/latest | grep -o '"tag_name":"[^"]*' | cut -d'"' -f4 | xargs -I {} sh -c 'mkdir -p ~/seatunnel-installer && cd ~/seatunnel-installer && wget https://gitee.com/lyb173/seatunnel-installer/repository/archive/{}.tar.gz -O- | tar -xz'
+
+# 第二步：进入目录修改config.properties
+cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh && vim config.properties
+```
 
 #### 2.3 配置节点IP
 修改 config.properties 中的以下部分：
