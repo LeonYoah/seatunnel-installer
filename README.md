@@ -181,7 +181,7 @@ cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh
 ```
 
 > 💡 提示：
-> - 默认安装目录为 `/data/seatunnel`
+> - 默认安装目录为 `/home/seatunnel/seatunnel-package`
 > - 如需修改安装目录，请编辑 config.properties 中的 BASE_DIR 配置项
 > - `--no-plugins`: 仅安装核心组件，不安装任何插件
 > - `--install-plugins`: 单独安装或更新插件，可用于已安装环境
