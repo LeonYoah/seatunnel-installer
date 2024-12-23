@@ -82,7 +82,67 @@ Flink/Spark 模式请自行适配。
 
 ## 快速部署
 
-### 1. 单节点安装
+### 0. 用户权限配置
+
+#### 方式一：使用root用户安装
+```bash
+# 直接使用root用户执行安装脚本即可
+sudo su -
+./install_seatunnel.sh
+```
+
+#### 方式二：使用普通用户 + sudo权限安装（推荐）
+
+1. 创建安装用户和用户组
+```bash
+# 创建用户组
+sudo groupadd seatunnel
+
+# 创建用户并加入用户组
+sudo useradd -m -g seatunnel seatunnel
+
+# 设置用户密码
+sudo passwd seatunnel
+```
+
+2. 配置sudo权限
+```bash
+# 创建sudo权限配置文件
+sudo tee /etc/sudoers.d/seatunnel << EOF
+Defaults:seatunnel !authenticate
+seatunnel ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+
+# 设置正确的权限
+sudo chmod 440 /etc/sudoers.d/seatunnel
+```
+
+3. 切换到安装用户
+```bash
+# 切换用户
+su - seatunnel
+
+# 验证sudo权限
+sudo whoami  # 应该输出 root
+sudo ls /root  # 应该能访问root目录
+sudo systemctl status  # 应该能执行系统管理命令 （如果报错，请检查是否安装了systemctl）
+```
+
+4. 修改config.properties中的用户配置
+```properties
+# 设置安装用户和用户组
+INSTALL_USER=seatunnel
+INSTALL_GROUP=seatunnel
+```
+
+> ⚠️ 注意：
+> - 建议使用普通用户 + sudo权限的方式安装
+> - 安装用户必须具有sudo权限
+> - 如果使用root用户安装，脚本会给出警告提示
+> - 安装目录的所有者会被设置为INSTALL_USER:INSTALL_GROUP
+> - !!!安装脚本会自动禁用SELinux，以避免权限问题导致的各种错误
+
+### 1. 单节点安装(默认root用户)
 
 #### 方式一：GitHub下载（国外推荐）
 ```bash
@@ -128,7 +188,7 @@ cd ~/seatunnel-installer/seatunnel-installer-* && chmod +x install_seatunnel.sh
 > - GitHub最新版本：[![Latest Release](https://img.shields.io/github/v/release/LeonYoah/seatunnel-installer)](https://github.com/LeonYoah/seatunnel-installer/releases/latest)
 > - Gitee仓库：[![Gitee](https://img.shields.io/badge/Gitee-Repository-red)](https://gitee.com/lyb173/seatunnel-installer/releases)
 
-### 2. 多节点安装
+### 2. 多节点安装(默认root用户)
 
 #### 2.1 配置SSH免密登录
 ```bash
@@ -583,3 +643,5 @@ SSH_TIMEOUT=10
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request来帮助改进这个安装器！
+
+

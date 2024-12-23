@@ -403,21 +403,335 @@ read_config() {
 
 # 检查用户配置
 check_user() {
-    log_info "检查用户配置..."
     
-    # 检查sudo权限
-    if ! sudo -v &>/dev/null; then
-        log_error "当前用户没有sudo权限，请确保用户在sudoers中"
+    # 检查当前执行用户和配置的安装用户是否一致
+    local current_user=$(whoami)
+    if [ "$current_user" != "$INSTALL_USER" ]; then
+        log_error "当前执行用户($current_user)与配置文件中的安装用户($INSTALL_USER)不一致。
+
+请执行以下操作之一:
+
+1. 如果用户不存在，请按照以下命令创建用户:
+   sudo groupadd $INSTALL_GROUP
+   sudo useradd -m -g $INSTALL_GROUP $INSTALL_USER
+   sudo passwd $INSTALL_USER
+   
+   ## 配置sudo权限（推荐使用以下方式）：
+   # 创建sudo权限配置文件（免密配置）：
+   sudo tee /etc/sudoers.d/$INSTALL_USER << EOF
+   Defaults:$INSTALL_USER !authenticate
+   $INSTALL_USER ALL=(ALL:ALL) NOPASSWD: ALL
+   EOF
+   sudo chmod 440 /etc/sudoers.d/$INSTALL_USER
+   
+   # 验证sudo免密是否生效：
+   su - $INSTALL_USER
+   sudo whoami   # 应该显示root且不提示密码
+   sudo ls /root # 应该能访问root目录且不提示密码
+   sudo systemctl status # 应该能执行系统管理命令且不提示密码
+
+   ## 多节点部署需要配置SSH免密登录：
+   su - $INSTALL_USER  # 切换到安装用户
+   ssh-keygen -t rsa   # 生成密钥对，一路回车即可
+   
+   # 对所有节点执行以下命令（包括本机）：
+   ssh-copy-id $INSTALL_USER@node1
+   ssh-copy-id $INSTALL_USER@node2
+   # ... 对所有节点执行
+    
+   # 验证免密登录：
+   ssh node1 "whoami"  # 应该显示用户名且无需密码
+   ssh node2 "whoami"
+   
+   ## 注意：
+   - node1、node2替换为实际的节点主机名或IP
+   - 首次SSH连接会提示确认指纹，输入yes即可
+   - 需要输入目标节点上$INSTALL_USER的密码
+   - 所有节点上都需要先创建好相同的用户和sudo权限
+
+2. 切换到配置的安装用户:
+   su - $INSTALL_USER
+
+3. 或修改配置文件中的安装用户:
+   vim config.properties
+   # 修改 INSTALL_USER=$current_user
+
+注意: 
+- sudo权限配置说明:
+-  * -a: 追加模式，不删除已有组
+-  * -G: 指定附加组
+-  * sudo/wheel: 系统管理员组（不同系统名称可能不同）
+- 建议使用sudoers.d配置sudo权限，这样:
+  * 不依赖系统sudo组
+  * 无需输入密码
+  * 权限更精确可控
+  * 便于管理和移除
+- 如果使用root用户，请将配置文件中的INSTALL_USER也设置为root
+- 多节点部署必须配置SSH免密登录
+- 所有节点的用户名、用户组、sudo权限配置必须一致"
+        exit 1
+    fi
+    
+    # 检查本地和远程节点的sudo权限
+    check_sudo_permission() {
+        local node=$1
+        local is_remote=$2
+        
+        # 定义sudo权限验证命令
+        local verify_commands=(
+            "sudo whoami | grep -w root"         # 确认可以获取root权限
+            "sudo ls /root &>/dev/null"          # 测试访问root目录
+            "sudo systemctl status &>/dev/null"  # 测试systemctl权限
+        )
+        
+        # 检查sudo是否需要密码
+        check_sudo_nopasswd() {
+            local node=$1
+            local is_remote=$2
+            
+            if [ "$is_remote" = true ]; then
+                # 远程节点检查
+                if ! ssh_with_retry "$node" "sudo -n true" 2>/dev/null; then
+                    return 1
+                fi
+            else
+                # 本地节点检查
+                if ! sudo -n true 2>/dev/null; then
+                    return 1
+                fi
+            fi
+            return 0
+        }
+        
+        if [ "$is_remote" = true ]; then
+            # 远程节点检查
+            local sudo_ok=true
+            # 先检查sudo免密
+            if ! check_sudo_nopasswd "$node" true; then
+                log_error "远程节点 $node 的用户($INSTALL_USER)的sudo权限需要输入密码，请按以下步骤配置sudo免密：
+
+1. 在节点 $node 上执行以下命令：
+   
+   # 创建或编辑sudo配置文件
+   sudo tee /etc/sudoers.d/$INSTALL_USER << EOF
+   $INSTALL_USER ALL=(ALL) NOPASSWD: ALL
+   EOF
+   
+   # 设置正确的权限
+   sudo chmod 440 /etc/sudoers.d/$INSTALL_USER
+
+2. 验证sudo免密：
+   sudo -n true  # 应该不提示输入密码
+   
+注意：
+- 必须配置sudo免密，否则自动化部署可能失败
+- 如果/etc/sudoers.d/$INSTALL_USER已存在，请确保包含NOPASSWD设置
+- 某些系统可能需要在/etc/sudoers中启用includedir /etc/sudoers.d"
+                return 1
+            fi
+            
+            for cmd in "${verify_commands[@]}"; do
+                if ! ssh_with_retry "$node" "$cmd"; then
+                    sudo_ok=false
+                    break
+                fi
+            done
+            
+            if [ "$sudo_ok" = false ]; then
+                log_error "远程节点 $node 的用户($INSTALL_USER)没有sudo权限，请执行以下步骤：
+
+1. 在节点 $node 上执行以下命令之一：
+
+   方式1：将用户添加到sudo组（部分系统可能是wheel组）
+   sudo usermod -aG sudo $INSTALL_USER  # Ubuntu/Debian系统
+   # 或
+   sudo usermod -aG wheel $INSTALL_USER # CentOS/RHEL系统
+
+   方式2：创建sudo权限配置文件（推荐）
+   sudo tee /etc/sudoers.d/$INSTALL_USER << EOF
+   Defaults:$INSTALL_USER !authenticate
+   $INSTALL_USER ALL=(ALL:ALL) NOPASSWD: ALL
+   EOF
+   sudo chmod 440 /etc/sudoers.d/$INSTALL_USER
+
+2. 验证sudo权限（以下命令都应该成功执行）：
+   sudo whoami             # 应该输出 root
+   sudo ls /root           # 应该能访问root目录
+   sudo systemctl status   # 应该能执行系统管理命令
+
+注意：
+- 建议使用方式2配置sudo权限，这样无需输入密码
+- 如果使用方式1，某些系统可能使用wheel组
+- 添加权限后需要重新登录生效
+- 确保授予的权限足够安装和管理服务"
+                return 1
+            fi
+        else
+            # 本地节点检查
+            local sudo_ok=true
+            # 先检查sudo免密
+            if ! check_sudo_nopasswd "$node" false; then
+                log_error "当前用户($INSTALL_USER)的sudo权限需要输入密码，请按以下步骤配置sudo免密：
+
+1. 创建或编辑sudo配置文件：
+   sudo tee /etc/sudoers.d/$INSTALL_USER << EOF
+   Defaults:$INSTALL_USER !authenticate
+   $INSTALL_USER ALL=(ALL:ALL) NOPASSWD: ALL
+   EOF
+   
+2. 设置正确的权限：
+   sudo chmod 440 /etc/sudoers.d/$INSTALL_USER
+
+3. 验证sudo免密：
+   sudo -n true  # 应该不提示输入密码
+   
+注意：
+- 必须配置sudo免密，否则自动化部署可能失败
+- 如果/etc/sudoers.d/$INSTALL_USER已存在，请确保包含NOPASSWD设置
+- 某些系统可能需要在/etc/sudoers中启用includedir /etc/sudoers.d"
+                return 1
+            fi
+            
+            for cmd in "${verify_commands[@]}"; do
+                if ! eval "$cmd"; then
+                    sudo_ok=false
+                    break
+                fi
+            done
+            
+            if [ "$sudo_ok" = false ]; then
+                log_error "当前用户($INSTALL_USER)没有sudo权限，请执行以下步骤后重试：
+
+1. 联系系统管理员将当前用户添加到sudo组：
+   sudo usermod -aG sudo $INSTALL_USER
+
+2. 或者让管理员在/etc/sudoers.d/目录下创建配置文件（推荐）：
+   sudo tee /etc/sudoers.d/$INSTALL_USER << EOF
+   Defaults:$INSTALL_USER !authenticate
+   $INSTALL_USER ALL=(ALL:ALL) NOPASSWD: ALL
+   EOF
+   sudo chmod 440 /etc/sudoers.d/$INSTALL_USER
+
+3. 验证sudo权限（以下命令都应该成功执行）：
+   sudo whoami             # 应该输出 root
+   sudo ls /root           # 应该能访问root目录
+   sudo systemctl status   # 应该能执行系统管理命令
+
+注意：
+- 建议使用方式2配置sudo权限，这样无需输入密码
+- 确保授予的权限足够安装和管理服务
+- 添加权限后需要重新登录生效"
+                return 1
+            fi
+        fi
+        return 0
+    }
+    
+    # 检查所有节点的sudo权限
+    if [ "$DEPLOY_MODE" = "hybrid" ]; then
+        for node in "${ALL_NODES[@]}"; do
+            if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
+                if ! check_sudo_permission "$node" true; then
+                    exit 1
+                fi
+            else
+                if ! check_sudo_permission "$node" false; then
+                    exit 1
+                fi
+            fi
+        done
+    else
+        for master in "${MASTER_IPS[@]}"; do
+            if [ "$master" != "localhost" ] && [ "$master" != "$(hostname -I | awk '{print $1}')" ]; then
+                if ! check_sudo_permission "$master" true; then
+                    exit 1
+                fi
+            else
+                if ! check_sudo_permission "$master" false; then
+                    exit 1
+                fi
+            fi
+        done
+        for worker in "${WORKER_IPS[@]}"; do
+            if [ "$worker" != "localhost" ] && [ "$worker" != "$(hostname -I | awk '{print $1}')" ]; then
+                if ! check_sudo_permission "$worker" true; then
+                    exit 1
+                fi
+            else
+                if ! check_sudo_permission "$worker" false; then
+                    exit 1
+                fi
+            fi
+        done
     fi
     
     # 检查指定用户是否存在
     if ! id "$INSTALL_USER" >/dev/null 2>&1; then
-        log_error "用户 $INSTALL_USER 不存在，请先创建用户"
+        log_error "安装用户($INSTALL_USER)不存在，请按以下步骤操作：
+
+1. 创建用户和用户组：
+   sudo groupadd $INSTALL_GROUP
+   sudo useradd -m -g $INSTALL_GROUP $INSTALL_USER
+
+2. 设置用户密码：
+   sudo passwd $INSTALL_USER
+
+3. 配置sudo权限（选择以下任一方式）：
+
+   方式1：将用户添加到sudo组（需要输入密码）
+   sudo usermod -aG sudo $INSTALL_USER
+
+   方式2：创建sudo权限配置文件（推荐，无需输入密码）
+   sudo tee /etc/sudoers.d/$INSTALL_USER << EOF
+   Defaults:$INSTALL_USER !authenticate
+   $INSTALL_USER ALL=(ALL:ALL) NOPASSWD: ALL
+   EOF
+   sudo chmod 440 /etc/sudoers.d/$INSTALL_USER
+
+4. 切换到新用户并验证：
+   su - $INSTALL_USER
+   sudo whoami  # 应该输出 root
+
+5. 重新运行安装脚本：
+   ./install_seatunnel.sh
+
+注意：
+- 建议使用方式2配置sudo权限，这样无需输入密码
+- 如果使用方式1，需要确保系统中存在sudo组
+- 某些系统中sudo组可能叫wheel组
+- 添加sudo权限后需要重新登录才能生效
+- 如果是多节点安装，需要在所有节点上执行上述步骤"
+        exit 1
     fi
     
     # 检查用户组是否存在
     if ! getent group "$INSTALL_GROUP" >/dev/null; then
-        log_error "用户组 $INSTALL_GROUP 不存在，请先创建用户组"
+        log_error "用户组($INSTALL_GROUP)不存在，请执行以下命令创建用户组后重试：
+
+1. 创建用户组：
+   sudo groupadd $INSTALL_GROUP
+
+2. 将用户添加到用户组：
+   sudo usermod -aG $INSTALL_GROUP $INSTALL_USER"
+        exit 1
+    fi
+
+    # 检查当前用户是否有权限访问安装目录
+    if [ ! -d "$BASE_DIR" ]; then
+        # 如果目录不存在，检查是否有权限创建
+        if ! mkdir -p "$BASE_DIR" 2>/dev/null; then
+            log_error "当前用户($INSTALL_USER)无法创建安装目录($BASE_DIR)，请执行以下命令后重试：
+
+sudo mkdir -p $BASE_DIR
+sudo chown -R $INSTALL_USER:$INSTALL_GROUP $BASE_DIR"
+            exit 1
+        fi
+    elif [ ! -w "$BASE_DIR" ]; then
+        # 如果目录存在但没有写权限
+        log_error "当前用户($INSTALL_USER)没有安装目录($BASE_DIR)的写入权限，请执行以下命令后重试：
+
+sudo chown -R $INSTALL_USER:$INSTALL_GROUP $BASE_DIR"
+        exit 1
     fi
 }
 
@@ -425,6 +739,28 @@ check_user() {
 setup_permissions() {
     local dir=$1
     log_info "设置目录权限: $dir"
+    
+    # 获取用户home目录的绝对路径
+    local user_home
+    if command -v getent >/dev/null 2>&1; then
+        user_home=$(getent passwd "$INSTALL_USER" | cut -d: -f6)
+    else
+        user_home=$(eval echo ~"$INSTALL_USER")
+    fi
+    
+    # 检查是否是用户的home目录
+    if [[ "$dir" == "$user_home" ]]; then
+        log_warning "跳过用户home目录的权限设置: $dir"
+        return 0
+    fi
+    
+    # 检查目录是否存在
+    if [ ! -d "$dir" ]; then
+        log_error "目录不存在: $dir"
+        return 1
+    fi
+    
+    # 设置目录权限
     sudo chown -R "$INSTALL_USER:$INSTALL_GROUP" "$dir"
     sudo chmod -R 755 "$dir"
 }
@@ -775,13 +1111,22 @@ start_cluster() {
             for node in "${ALL_NODES[@]}"; do
                 if [ "$node" = "localhost" ] || [ "$node" = "$current_ip" ]; then
                     log_info "在本地节点启动服务..."
-                    sudo systemctl daemon-reload
-                    sudo systemctl start seatunnel
+                    if ! sudo systemctl start seatunnel; then
+                        log_error "启动本地服务失败，请手动执行：
+sudo systemctl start seatunnel
+sudo systemctl status seatunnel  # 查看状态"
+                        return 1
+                    fi
                     continue
                 fi
                 
                 log_info "在节点 $node 上启动服务..."
-                ssh_with_retry "$node" "sudo systemctl daemon-reload && sudo systemctl start seatunnel"
+                if ! ssh_with_retry "$node" "sudo systemctl start seatunnel"; then
+                    log_error "启动节点 $node 的服务失败，请手动在该节点执行：
+sudo systemctl start seatunnel
+sudo systemctl status seatunnel  # 查看状态"
+                    return 1
+                fi
             done
         else
             # 分离模式：根据节点角色启动对应服务
@@ -789,32 +1134,59 @@ start_cluster() {
             for master in "${MASTER_IPS[@]}"; do
                 if [ "$master" = "localhost" ] || [ "$master" = "$current_ip" ]; then
                     log_info "在本地Master节点启动服务..."
-                    sudo systemctl daemon-reload
-                    sudo systemctl start seatunnel-master
+                    if ! sudo systemctl start seatunnel-master; then
+                        log_error "启动本地Master服务失败，请手动执行：
+sudo systemctl start seatunnel-master
+sudo systemctl status seatunnel-master  # 查看状态"
+                        return 1
+                    fi
                     continue
                 fi
                 
                 log_info "在Master节点 $master 上启动服务..."
-                ssh_with_retry "$master" "sudo systemctl daemon-reload && sudo systemctl start seatunnel-master"
+                if ! ssh_with_retry "$master" "sudo systemctl start seatunnel-master"; then
+                    log_error "启动Master节点 $master 的服务失败，请手动在该节点执行：
+sudo systemctl start seatunnel-master
+sudo systemctl status seatunnel-master  # 查看状态"
+                    return 1
+                fi
             done
             
             # 启动Worker节点
             for worker in "${WORKER_IPS[@]}"; do
                 if [ "$worker" = "localhost" ] || [ "$worker" = "$current_ip" ]; then
                     log_info "在本地Worker节点启动服务..."
-                    sudo systemctl daemon-reload
-                    sudo systemctl start seatunnel-worker
+                    if ! sudo systemctl start seatunnel-worker; then
+                        log_error "启动本地Worker服务失败，请手动执行：
+sudo systemctl start seatunnel-worker
+sudo systemctl status seatunnel-worker  # 查看状态"
+                        return 1
+                    fi
                     continue
                 fi
                 
                 log_info "在Worker节点 $worker 上启动服务..."
-                ssh_with_retry "$worker" "sudo systemctl daemon-reload && sudo systemctl start seatunnel-worker"
+                if ! ssh_with_retry "$worker" "sudo systemctl start seatunnel-worker"; then
+                    log_error "启动Worker节点 $worker 的服务失败，请手动在该节点执行：
+sudo systemctl start seatunnel-worker
+sudo systemctl status seatunnel-worker  # 查看状态"
+                    return 1
+                fi
             done
         fi
     else
         # 使用脚本启动
-        sudo chmod +x "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh"
-        run_as_user "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start"
+        if ! sudo chmod +x "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh"; then
+            log_error "设置启动脚本权限失败，请手动执行：
+sudo chmod +x $SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh"
+            return 1
+        fi
+        
+        if ! run_as_user "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start"; then
+            log_error "启动集群失败，请检查日志并手动启动：
+$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start"
+            return 1
+        fi
     fi
 }
 
@@ -955,9 +1327,11 @@ check_services() {
     else
         log_warning "部分节点服务检查未通过，请检查日志确认具体原因"
     fi
+    
+    log_success "所有服务运行正常"
 }
 
-# 配置检查点���储
+# 配置检查点存储
 configure_checkpoint() {
     # 计算实际节点数（排除localhost）
     local actual_node_count=0
@@ -985,7 +1359,7 @@ configure_checkpoint() {
     
     # Validate storage type
     if [[ -z "$CHECKPOINT_STORAGE_TYPE" ]]; then
-        log_info "未配置检查点存储类型，使用默认配置"
+        log_info "未配置检查点存储类��，使��默认配置"
         CHECKPOINT_STORAGE_TYPE="LOCAL_FILE"
     fi
 
@@ -1221,14 +1595,14 @@ install_java() {
     
     case $version in
         "8")
-            download_url="https://repo.huaweicloud.com/java/jdk/8u202-b08/jdk-8u202-linux-${arch_suffix}.tar.gz"
             java_package="jdk-8u202-linux-${arch_suffix}.tar.gz"
             java_dir="jdk1.8.0_202"
+            download_url="https://repo.huaweicloud.com/java/jdk/8u202-b08/$java_package"
             ;;
         "11")
-            download_url="https://repo.huaweicloud.com/java/jdk/11.0.2+9/jdk-11.0.2_linux-${arch_suffix}_bin.tar.gz"
             java_package="jdk-11.0.2_linux-${arch_suffix}_bin.tar.gz"
             java_dir="jdk-11.0.2"
+            download_url="https://repo.huaweicloud.com/java/jdk/11.0.2+9/$java_package"
             ;;
         *)
             log_error "不支持的Java版本: $version"
@@ -1238,26 +1612,31 @@ install_java() {
     # 使用全局下载目录
     cd "$DOWNLOAD_DIR" || log_error "无法进入下载目录"
     
-    # 下载Java安装包
-    log_info "下载Java安装包..."
-    if ! curl -L --progress-bar -o "$java_package" "$download_url"; then
-        # 如果华为云下载失败,尝试清华源
-        log_warning "从华为云下载失败,尝试清华源..."
-        case $version in
-            "8")
-                download_url="https://mirrors.tuna.tsinghua.edu.cn/Adoptium/8/jdk/${arch_suffix}/linux/OpenJDK8U-jdk_${arch_suffix}_linux_hotspot_8u432b06.tar.gz"
-                java_package="OpenJDK8U-jdk_${arch_suffix}_linux_hotspot_8u432b06.tar.gz"
-                java_dir="jdk8u432-b06"
-                ;;
-            "11")
-                download_url="https://mirrors.tuna.tsinghua.edu.cn/Adoptium/11/jdk/${arch_suffix}/linux/OpenJDK11U-jdk_${arch_suffix}_linux_hotspot_11.0.25_9.tar.gz"
-                java_package="OpenJDK11U-jdk_${arch_suffix}_linux_hotspot_11.0.25_9.tar.gz"
-                java_dir="jdk-11.0.25+9"
-                ;;
-        esac
-        
+    # 检查本地是否已有安装包
+    if [ -f "$DOWNLOAD_DIR/$java_package" ]; then
+        log_info "发现本地已存在Java安装包: $java_package"
+    else
+        # 下载Java安装包
+        log_info "下载Java安装包..."
         if ! curl -L --progress-bar -o "$java_package" "$download_url"; then
-            log_error "Java安装包下载失败"
+            # 如果华为云下载失败,尝试清华源
+            log_warning "从华为云下载失败,尝试清华源..."
+            case $version in
+                "8")
+                    java_package="OpenJDK8U-jdk_${arch_suffix}_linux_hotspot_8u432b06.tar.gz"
+                    java_dir="jdk8u432-b06"
+                    download_url="https://mirrors.tuna.tsinghua.edu.cn/Adoptium/8/jdk/${arch_suffix}/linux/$java_package"
+                    ;;
+                "11")
+                    java_package="OpenJDK11U-jdk_${arch_suffix}_linux_hotspot_11.0.25_9.tar.gz"
+                    java_dir="jdk-11.0.25+9"
+                    download_url="https://mirrors.tuna.tsinghua.edu.cn/Adoptium/11/jdk/${arch_suffix}/linux/$java_package"
+                    ;;
+            esac
+            
+            if ! curl -L --progress-bar -o "$java_package" "$download_url"; then
+                log_error "Java安装包下载失败"
+            fi
         fi
     fi
     
@@ -1327,8 +1706,8 @@ export PATH=\$JAVA_HOME/bin:\$PATH
         fi
     fi
     
-    # 清理安装文件
-    rm -f "$DOWNLOAD_DIR/$java_package"
+    # 不删除安装包,以便重复使用
+    log_info "保留Java安装包以供重复使用: $DOWNLOAD_DIR/$java_package"
 }
 
 
@@ -1806,7 +2185,7 @@ create_service_file() {
     local hazelcast_config=""
     local jvm_options_file=""
     
-    # ���置配置文件和参数
+    # 设置配置文件和参数
     case "$role" in
         "Hybrid")
             exec_args=""
@@ -1846,8 +2225,9 @@ create_service_file() {
         fi
     done < "$jvm_options_file"
 
-    # 创建服务文件
-    cat > "$service_file" << EOF
+    # 创建临时服务文件
+    local temp_service_file="/tmp/${service_name}.service.tmp"
+    cat > "$temp_service_file" << EOF
 [Unit]
 Description=${description}
 After=network.target
@@ -1883,8 +2263,12 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-    # 设置权限
-    chmod 644 "$service_file"
+    # 使用sudo移动服务文件到系统目录
+    sudo mv "$temp_service_file" "$service_file"
+    
+    # 设置权限和所有者
+    sudo chown root:root "$service_file"
+    sudo chmod 644 "$service_file"
     
     # 重新加载systemd配置
     sudo systemctl daemon-reload
@@ -1901,48 +2285,65 @@ setup_auto_start() {
     fi
     
     log_info "配置SeaTunnel开机自启动..."
+    
     local current_ip
     current_ip=$(hostname -I | awk '{print $1}')
     
+    setup_remote_service() {
+        local node=$1
+        local service_name=$2
+        local role=$3
+        
+        log_info "在节点 $node 上配置服务..."
+        
+        # 在本地生成服务文件
+        create_service_file "$service_name" "$role"
+        
+        # 复制服务文件到远程节点
+        scp_with_retry "/etc/systemd/system/${service_name}.service" "$node" "/tmp/${service_name}.service"
+        
+        # 在远程节点上安装服务文件
+        ssh_with_retry "$node" "sudo mv /tmp/${service_name}.service /etc/systemd/system/ && \
+            sudo chown root:root /etc/systemd/system/${service_name}.service && \
+            sudo chmod 644 /etc/systemd/system/${service_name}.service && \
+            sudo systemctl daemon-reload && \
+            sudo systemctl enable ${service_name}"
+    }
+    
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        # 混合模式：在所有节点上配置相同的服务
+        # 混合模式
         for node in "${ALL_NODES[@]}"; do
-            # 跳过localhost和当前节点
-            if [ "$node" = "localhost" ] || [ "$node" = "$current_ip" ]; then
+            if [ "$node" = "$current_ip" ] || [ "$node" = "localhost" ]; then
                 log_info "在本地节点配置服务..."
                 create_service_file "seatunnel" "Hybrid"
-                continue
+            else
+                setup_remote_service "$node" "seatunnel" "Hybrid"
             fi
-            
-            log_info "在节点 $node 上配置服务..."
-            ssh_with_retry "$node" "$(declare -f create_service_file); create_service_file 'seatunnel' 'Hybrid' '${JAVA_HOME}' '${SEATUNNEL_HOME}' '${INSTALL_USER}' '${INSTALL_GROUP}'"
         done
     else
-        # 分离模式：根据节点角色配置服务
+        # 分离模式
         # 配置Master节点
         for master in "${MASTER_IPS[@]}"; do
-            if [ "$master" = "localhost" ] || [ "$master" = "$current_ip" ]; then
+            if [ "$master" = "$current_ip" ] || [ "$master" = "localhost" ]; then
                 log_info "在本地Master节点配置服务..."
                 create_service_file "seatunnel-master" "Master"
-                continue
+            else
+                setup_remote_service "$master" "seatunnel-master" "Master"
             fi
-            
-            log_info "在Master节点 $master 上配置服务..."
-            ssh_with_retry "$master" "$(declare -f create_service_file); create_service_file 'seatunnel-master' 'Master' '${JAVA_HOME}' '${SEATUNNEL_HOME}' '${INSTALL_USER}' '${INSTALL_GROUP}'"
         done
         
         # 配置Worker节点
         for worker in "${WORKER_IPS[@]}"; do
-            if [ "$worker" = "localhost" ] || [ "$worker" = "$current_ip" ]; then
+            if [ "$worker" = "$current_ip" ] || [ "$worker" = "localhost" ]; then
                 log_info "在本地Worker节点配置服务..."
                 create_service_file "seatunnel-worker" "Worker"
-                continue
+            else
+                setup_remote_service "$worker" "seatunnel-worker" "Worker"
             fi
-            
-            log_info "在Worker节点 $worker 上配置服务..."
-            ssh_with_retry "$worker" "$(declare -f create_service_file); create_service_file 'seatunnel-worker' 'Worker' '${JAVA_HOME}' '${SEATUNNEL_HOME}' '${INSTALL_USER}' '${INSTALL_GROUP}'"
         done
     fi
+    
+    log_success "服务配置完成"
 }
 
 # 检查系统内存
@@ -2080,13 +2481,25 @@ handle_package() {
     
     # 创建安装目录
     log_info "创建安装目录..."
-    create_directory "$BASE_DIR"
-    setup_permissions "$BASE_DIR"
+    sudo mkdir -p "$BASE_DIR"
+    sudo chown "$INSTALL_USER:$INSTALL_GROUP" "$BASE_DIR"
     
     # 解压安装包
     log_info "解压安装包..."
-    sudo tar -zxf "$PACKAGE_PATH" -C "$BASE_DIR"
-    setup_permissions "$SEATUNNEL_HOME"
+    cd "$BASE_DIR" || log_error "无法进入安装目录"
+    sudo tar -zxf "$PACKAGE_PATH"
+    
+    # 立即修改解压后目录的所有权
+    log_info "设置目录权限..."
+    sudo chown -R "$INSTALL_USER:$INSTALL_GROUP" "$SEATUNNEL_HOME"
+    sudo chmod -R 755 "$SEATUNNEL_HOME"
+    
+    # 验证权限设置
+    if [ ! -w "$SEATUNNEL_HOME" ]; then
+        log_error "无法写入安装目录: $SEATUNNEL_HOME，请检查权限设置"
+    fi
+    
+    log_success "安装包处理完成"
 }
 
 # 分发到其他节点
@@ -2391,37 +2804,44 @@ check_and_handle_selinux() {
     local is_remote=$2
     
     local check_script='
+    check_and_disable_selinux() {
         if ! command -v sestatus >/dev/null 2>&1; then
             echo "NO_SELINUX"
             exit 0
         fi
     
         # 检查SELinux状态
-        if sestatus | grep  "disabled"; then
+        if sestatus | grep -i "disabled" >/dev/null 2>&1; then
             echo "SELINUX_DISABLED"
             exit 0
         fi
         
-        # 检查restorecon和chcon命令
-        if ! command -v restorecon >/dev/null 2>&1 || ! command -v chcon >/dev/null 2>&1; then
-            echo "NO_SELINUX_TOOLS"
-            exit 0
-        fi
-        
-        # 使用restorecon恢复/data/seatunnel目录的安全上下文
-        sudo restorecon -Rv /data/seatunnel >/dev/null 2>&1
-        
-        # 设置Java二进制文件的SELinux上下文
-        if [ -d /data/seatunnel/java ]; then
-            sudo chcon -R -t bin_t /data/seatunnel/java/*/bin/java >/dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                echo "SELINUX_CONTEXT_RESTORED"
+        # 检查是否为enforcing模式
+        if sestatus | grep -i "enforcing" >/dev/null 2>&1; then
+            # 先设置为permissive模式
+            sudo setenforce 0
+            
+            # 修改配置文件以永久禁用
+            if [ -f "/etc/selinux/config" ]; then
+                sudo sed -i "s/^[[:space:]]*SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config
+                sudo sed -i "s/^[[:space:]]*SELINUX=permissive/SELINUX=disabled/" /etc/selinux/config
+                echo "SELINUX_WILL_DISABLE"
             else
-                echo "JAVA_CONTEXT_FAILED"
+                echo "CONFIG_NOT_FOUND"
             fi
         else
-            echo "SELINUX_CONTEXT_RESTORED"
-        fi'
+            # 如果是permissive模式,也永久禁用
+            if [ -f "/etc/selinux/config" ]; then
+                sudo sed -i "s/^[[:space:]]*SELINUX=permissive/SELINUX=disabled/" /etc/selinux/config
+                echo "SELINUX_WILL_DISABLE"
+            else
+                echo "CONFIG_NOT_FOUND"
+            fi
+        fi
+    }
+
+    check_and_disable_selinux
+    '
     
     if [ "$is_remote" = true ]; then
         # 远程节点检查
@@ -2430,55 +2850,66 @@ check_and_handle_selinux() {
         
         case "$result" in
             "NO_SELINUX")
-                log_info "节点 $node 未安装SELinux工具，跳过配置"
+                log_info "节点 $node 未安装SELinux,无需处理"
                 ;;
             "SELINUX_DISABLED")
-                log_info "节点 $node SELinux已禁用，跳过配置"
+                log_info "节点 $node 的SELinux已禁用"
                 ;;
-            "NO_SELINUX_TOOLS")
-                log_warning "节点 $node 未安装restorecon或chcon工具，跳过SELinux配置"
+            "SELINUX_WILL_DISABLE")
+                log_warning "节点 $node 的SELinux已设置为禁用状态,重启后生效"
                 ;;
-            "SELINUX_CONTEXT_RESTORED")
-                log_success "节点 $node 的SELinux安全上下文已恢复"
-                ;;
-            "JAVA_CONTEXT_FAILED")
-                log_warning "节点 $node 的Java二进制文件SELinux上下文设置失败"
+            "CONFIG_NOT_FOUND")
+                log_warning "节点 $node 未找到SELinux配置文件,请手动检查"
                 ;;
             *)
-                log_warning "节点 $node 的SELinux配置未完成: $result"
+                log_warning "节点 $node 的SELinux状态未知: $result"
                 ;;
         esac
     else
         # 本地节点检查
         if ! command -v sestatus >/dev/null 2>&1; then
-            log_info "本地节点未安装SELinux工具，跳过配置"
+            log_info "本地节点未安装SELinux,无需处理"
             return 0
         fi
         
-        if sestatus | grep "disabled"; then
-            log_info "本地节点SELinux已禁用，跳过配置"
+        if sestatus | grep -i "disabled" >/dev/null 2>&1; then
+            log_info "本地节点SELinux已禁用"
             return 0
         fi
         
-        if ! command -v restorecon >/dev/null 2>&1 || ! command -v chcon >/dev/null 2>&1; then
-            log_warning "本地节点未安装restorecon或chcon工具，跳过SELinux配置"
-            return 0
-        fi
-        
-        # 恢复本地安全上下文
-        sudo restorecon -Rv /data/seatunnel >/dev/null 2>&1
-        
-        # 设置Java二进制文件的SELinux上下文
-        if [ -d /data/seatunnel/java ]; then
-            if sudo chcon -R -t bin_t /data/seatunnel/java/*/bin/java >/dev/null 2>&1; then
-                log_success "本地节点的SELinux安全上下文已恢复，Java二进制文件上下文已设置"
+        # 检查是否为enforcing模式
+        if sestatus | grep -i "enforcing" >/dev/null 2>&1; then
+            log_warning "本地节点SELinux处于enforcing模式,正在禁用..."
+            # 先设置为permissive模式
+            sudo setenforce 0
+            
+            # 修改配置文件以永久禁用
+            if [ -f "/etc/selinux/config" ]; then
+                sudo sed -i "s/^[[:space:]]*SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config
+                sudo sed -i "s/^[[:space:]]*SELINUX=permissive/SELINUX=disabled/" /etc/selinux/config
+                log_warning "本地节点SELinux已设置为禁用状态,重启后生效"
             else
-                log_warning "本地节点的Java二进制文件SELinux上下文设置失败"
+                log_warning "本地节点未找到SELinux配置文件,请手动检查"
             fi
         else
-            log_success "本地节点的SELinux安全上下文已恢复"
+            # 如果是permissive模式,也永久禁用
+            if [ -f "/etc/selinux/config" ]; then
+                sudo sed -i "s/^[[:space:]]*SELINUX=permissive/SELINUX=disabled/" /etc/selinux/config
+                log_warning "本地节点SELinux已设置为禁用状态,重启后生效"
+            else
+                log_warning "本地节点未找到SELinux配置文件,请手动检查"
+            fi
         fi
     fi
+    
+    # 显示SELinux禁用警告
+    log_warning "
+注意: 为了确保SeaTunnel能够正常运行,安装脚本已禁用SELinux。
+这可能会降低系统的安全性,但可以避免权限问题导致的各种错误。
+如果您需要重新启用SELinux,请在安装完成后修改/etc/selinux/config文件,
+并执行'sudo setenforce 1'命令(重启后生效)。
+
+更多信息请参考README文档中的SELinux相关说明。"
 }
 
 # 添加execute_remote_script函数
@@ -2565,22 +2996,22 @@ check_firewall() {
             
             # 检查防火墙状态和端口
             if command -v systemctl >/dev/null 2>&1; then
-                if systemctl is-active --quiet firewalld; then
+                if sudo systemctl is-active --quiet firewalld; then
                     # 检查端口是否开放
                     ports_status=""
                     for port in "${ports[@]}"; do
-                        if firewall-cmd --list-ports | grep -w "$port/tcp" >/dev/null 2>&1; then
+                        if sudo firewall-cmd --list-ports | grep -w "$port/tcp" >/dev/null 2>&1; then
                             ports_status="${ports_status}${port}:open,"
                         else
                             ports_status="${ports_status}${port}:closed,"
                         fi
                     done
                     echo "FIREWALLD_ACTIVE:$ports_status"
-                elif systemctl is-active --quiet ufw; then
+                elif sudo systemctl is-active --quiet ufw; then
                     # 检查UFW端口状态
                     ports_status=""
                     for port in "${ports[@]}"; do
-                        if ufw status | grep -w "$port/tcp.*ALLOW" >/dev/null 2>&1; then
+                        if sudo ufw status | grep -w "$port/tcp.*ALLOW" >/dev/null 2>&1; then
                             ports_status="${ports_status}${port}:open,"
                         else
                             ports_status="${ports_status}${port}:closed,"
@@ -2591,11 +3022,11 @@ check_firewall() {
                     echo "FIREWALL_INACTIVE"
                 fi
             elif command -v service >/dev/null 2>&1; then
-                if service iptables status >/dev/null 2>&1; then
+                if sudo service iptables status >/dev/null 2>&1; then
                     # 检查iptables端口状态
                     ports_status=""
                     for port in "${ports[@]}"; do
-                        if iptables -L -n | grep -w "tcp dpt:$port.*ACCEPT" >/dev/null 2>&1; then
+                        if sudo iptables -L -n | grep -w "tcp dpt:$port.*ACCEPT" >/dev/null 2>&1; then
                             ports_status="${ports_status}${port}:open,"
                         else
                             ports_status="${ports_status}${port}:closed,"
@@ -2630,27 +3061,37 @@ check_firewall() {
                     
                     if [ ${#closed_ports[@]} -gt 0 ]; then
                         log_warning "节点 $node 的防火墙已启用，以下端口未开放: ${closed_ports[*]}"
-                        echo -e "\n${YELLOW}请在节点 $node 上执行以下操作之一：${NC}"
-                        echo "1. 关闭防火墙（推荐用于测试环境）："
+                        echo -e "\n${YELLOW}请在节点 $node 上执行以下命令开放端口:${NC}"
                         case "$firewall_type" in
                             "FIREWALLD_ACTIVE")
-                                echo -e "${GREEN}sudo systemctl stop firewalld && sudo systemctl disable firewalld${NC}"
-                                echo "2. 开放必要端口（推荐用于生产环境）："
+                                echo -e "1. 使用root用户执行:"
+                                for port in "${closed_ports[@]}"; do
+                                    echo -e "${GREEN}firewall-cmd --permanent --add-port=$port/tcp${NC}"
+                                done
+                                echo -e "${GREEN}firewall-cmd --reload${NC}"
+                                echo -e "\n2. 或使用sudo执行:"
                                 for port in "${closed_ports[@]}"; do
                                     echo -e "${GREEN}sudo firewall-cmd --permanent --add-port=$port/tcp${NC}"
                                 done
                                 echo -e "${GREEN}sudo firewall-cmd --reload${NC}"
                                 ;;
                             "UFW_ACTIVE")
-                                echo -e "${GREEN}sudo ufw disable${NC}"
-                                echo "2. 开放必要端口（推荐用于生产环境）："
+                                echo -e "1. 使用root用户执行:"
+                                for port in "${closed_ports[@]}"; do
+                                    echo -e "${GREEN}ufw allow $port/tcp${NC}"
+                                done
+                                echo -e "\n2. 或使用sudo执行:"
                                 for port in "${closed_ports[@]}"; do
                                     echo -e "${GREEN}sudo ufw allow $port/tcp${NC}"
                                 done
                                 ;;
                             "IPTABLES_ACTIVE")
-                                echo -e "${GREEN}sudo service iptables stop && sudo chkconfig iptables off${NC}"
-                                echo "2. 开放必要端口（推荐用于生产环境）："
+                                echo -e "1. 使用root用户执行:"
+                                for port in "${closed_ports[@]}"; do
+                                    echo -e "${GREEN}iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
+                                done
+                                echo -e "${GREEN}service iptables save${NC}"
+                                echo -e "\n2. 或使用sudo执行:"
                                 for port in "${closed_ports[@]}"; do
                                     echo -e "${GREEN}sudo iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
                                 done
@@ -2673,24 +3114,27 @@ check_firewall() {
         else
             # 本地节点检查
             if command -v systemctl >/dev/null 2>&1; then
-                if systemctl is-active --quiet firewalld; then
+                if sudo systemctl is-active --quiet firewalld; then
                     if [ ! "$firewall_status_shown" ]; then
                         log_info "检测到防火墙(firewalld)已启用"
                         firewall_status_shown=true
                     fi
                     local closed_ports=()
                     for port in "${ports[@]}"; do
-                        if ! firewall-cmd --list-ports | grep -w "$port/tcp" >/dev/null 2>&1; then
+                        if ! sudo firewall-cmd --list-ports | grep -w "$port/tcp" >/dev/null 2>&1; then
                             closed_ports+=("$port")
                         fi
                     done
                     
                     if [ ${#closed_ports[@]} -gt 0 ]; then
                         log_warning "本地节点防火墙(firewalld)已启用，以下端口未开放: ${closed_ports[*]}"
-                        echo -e "\n${YELLOW}请执行以下操作之一：${NC}"
-                        echo "1. 关闭防火墙（推荐用于测试环境）："
-                        echo -e "${GREEN}sudo systemctl stop firewalld && sudo systemctl disable firewalld${NC}"
-                        echo "2. 开放必要端口（推荐用于生产环境）："
+                        echo -e "\n${YELLOW}请执行以下命令开放端口:${NC}"
+                        echo -e "1. 使用root用户执行:"
+                        for port in "${closed_ports[@]}"; do
+                            echo -e "${GREEN}firewall-cmd --permanent --add-port=$port/tcp${NC}"
+                        done
+                        echo -e "${GREEN}firewall-cmd --reload${NC}"
+                        echo -e "\n2. 或使用sudo执行:"
                         for port in "${closed_ports[@]}"; do
                             echo -e "${GREEN}sudo firewall-cmd --permanent --add-port=$port/tcp${NC}"
                         done
@@ -2699,24 +3143,26 @@ check_firewall() {
                     else
                         log_info "本地节点防火墙已启用，所需端口已开放"
                     fi
-                elif systemctl is-active --quiet ufw; then
+                elif sudo systemctl is-active --quiet ufw; then
                     if [ ! "$firewall_status_shown" ]; then
                         log_info "检测到防火墙(ufw)已启用"
                         firewall_status_shown=true
                     fi
                     local closed_ports=()
                     for port in "${ports[@]}"; do
-                        if ! ufw status | grep -w "$port/tcp.*ALLOW"; then
+                        if ! sudo ufw status | grep -w "$port/tcp.*ALLOW" >/dev/null 2>&1; then
                             closed_ports+=("$port")
                         fi
                     done
                     
                     if [ ${#closed_ports[@]} -gt 0 ]; then
                         log_warning "本地节点防火墙(ufw)已启用，以下端口未开放: ${closed_ports[*]}"
-                        echo -e "\n${YELLOW}请执行以下操作之一：${NC}"
-                        echo "1. 关闭防火墙（推荐用于测试环境）："
-                        echo -e "${GREEN}sudo ufw disable${NC}"
-                        echo "2. 开放必要端口（推荐用于生产环境）："
+                        echo -e "\n${YELLOW}请执行以下命令开放端口:${NC}"
+                        echo -e "1. 使用root用户执行:"
+                        for port in "${closed_ports[@]}"; do
+                            echo -e "${GREEN}ufw allow $port/tcp${NC}"
+                        done
+                        echo -e "\n2. 或使用sudo执行:"
                         for port in "${closed_ports[@]}"; do
                             echo -e "${GREEN}sudo ufw allow $port/tcp${NC}"
                         done
@@ -2726,20 +3172,23 @@ check_firewall() {
                     fi
                 fi
             elif command -v service >/dev/null 2>&1; then
-                if service iptables status >/dev/null 2>&1; then
+                if sudo service iptables status >/dev/null 2>&1; then
                     local closed_ports=()
                     for port in "${ports[@]}"; do
-                        if ! iptables -L -n | grep -q "tcp dpt:$port.*ACCEPT"; then
+                        if ! sudo iptables -L -n | grep -w "tcp dpt:$port.*ACCEPT" >/dev/null 2>&1; then
                             closed_ports+=("$port")
                         fi
                     done
                     
                     if [ ${#closed_ports[@]} -gt 0 ]; then
                         log_warning "本地节点防火墙(iptables)已启用，以下端口未开放: ${closed_ports[*]}"
-                        echo -e "\n${YELLOW}请执行以下操作之一：${NC}"
-                        echo "1. 关闭防火墙（推荐用于测试环境）："
-                        echo -e "${GREEN}sudo service iptables stop && sudo chkconfig iptables off${NC}"
-                        echo "2. 开放必要端口（推荐用于生产环境）："
+                        echo -e "\n${YELLOW}请执行以下命令开放端口:${NC}"
+                        echo -e "1. 使用root用户执行:"
+                        for port in "${closed_ports[@]}"; do
+                            echo -e "${GREEN}iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
+                        done
+                        echo -e "${GREEN}service iptables save${NC}"
+                        echo -e "\n2. 或使用sudo执行:"
                         for port in "${closed_ports[@]}"; do
                             echo -e "${GREEN}sudo iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
                         done
@@ -2839,6 +3288,10 @@ main() {
         log_info "命令行参数指定不安装插件，已覆盖配置文件设置"
     fi
 
+    # 检查用户配置
+    log_info "检查用户配置..."
+    check_user
+
     # 检查防火墙状态
     check_firewall
     
@@ -2889,9 +3342,7 @@ main() {
     log_info "设置退出清理..."
     trap cleanup_temp_files EXIT INT TERM
     
-    # 检查用户配置
-    log_info "检查用户配置..."
-    check_user
+
     
     # 检查系统内存
     log_info "检查系统内存..."
