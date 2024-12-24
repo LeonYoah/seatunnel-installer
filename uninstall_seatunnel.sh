@@ -332,6 +332,41 @@ remove_files() {
         local node=$1
         local is_local=$2
         
+        # 获取用户home目录
+        local user_home
+        if [ "$is_local" = true ]; then
+            if command -v getent >/dev/null 2>&1; then
+                user_home=$(getent passwd "$INSTALL_USER" | cut -d: -f6)
+            else
+                user_home=$(eval echo ~"$INSTALL_USER")
+            fi
+        else
+            # 从节点中移除可能存在的用户名前缀
+            local clean_node=${node#*@}  # 移除@之前的所有内容
+            user_home=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${clean_node}" "getent passwd $INSTALL_USER | cut -d: -f6 || echo ~$INSTALL_USER")
+        fi
+        
+        # 检查BASE_DIR是否是用户home目录
+        if [[ "$BASE_DIR" == "$user_home" ]]; then
+            log_warning "安全检查：BASE_DIR($BASE_DIR)是用户home目录($user_home),跳过删除"
+            return 0
+        fi
+        
+        # 检查是否是根目录的一级子目录
+        if [[ "$BASE_DIR" =~ ^/[^/]+$ ]]; then
+            log_warning "安全检查：BASE_DIR($BASE_DIR)是根目录的一级子目录，跳过删除"
+            return 0
+        fi
+        
+        # 检查是否是常见的系统目录
+        local protected_dirs=("/bin" "/boot" "/dev" "/etc" "/lib" "/lib64" "/media" "/mnt" "/opt" "/proc" "/root" "/run" "/sbin" "/srv" "/sys" "/tmp" "/usr" "/var")
+        for dir in "${protected_dirs[@]}"; do
+            if [[ "$BASE_DIR" == "$dir" || "$BASE_DIR" == "$dir/"* ]]; then
+                log_warning "安全检查：BASE_DIR($BASE_DIR)位于系统目录($dir)内，跳过删除"
+                return 0
+            fi
+        done
+        
         if [ "$is_local" = true ]; then
             # 删除安装目录
             if [ -d "$BASE_DIR" ]; then
@@ -339,11 +374,56 @@ remove_files() {
                 sudo rm -rf "$BASE_DIR"
             fi
         else
-            ssh_with_retry "$node" "
-                # 删除安装目录
-                if [ -d '$BASE_DIR' ]; then
-                    sudo rm -rf '$BASE_DIR'
-                fi"
+            # 远程删除前先进行安全检查
+            local check_script="
+if [ -d '$BASE_DIR' ]; then
+    if [[ '$BASE_DIR' =~ ^/[^/]+$ ]]; then
+        echo 'SKIP_ROOT_SUBDIR'
+        exit 0
+    fi
+    
+    if [[ '$BASE_DIR' == '$user_home' ]]; then
+        echo 'SKIP_HOME_DIR'
+        exit 0
+    fi
+    
+    for dir in /bin /boot /dev /etc /lib /lib64 /media /mnt /opt /proc /root /run /sbin /srv /sys /tmp /usr /var; do
+        if [[ '$BASE_DIR' == \"\$dir\" || '$BASE_DIR' == \"\$dir/\"* ]]; then
+            echo 'SKIP_SYSTEM_DIR'
+            exit 0
+        fi
+    done
+    
+    echo 'CAN_DELETE'
+else
+    echo 'DIR_NOT_EXIST'
+fi"
+            
+            # 执行检查脚本
+            local check_result
+            check_result=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${clean_node}" "$check_script")
+            
+            case "$check_result" in
+                "SKIP_ROOT_SUBDIR")
+                    log_warning "节点 $clean_node: BASE_DIR($BASE_DIR)是根目录的一级子目录，跳过删除"
+                    ;;
+                "SKIP_HOME_DIR")
+                    log_warning "节点 $clean_node: BASE_DIR($BASE_DIR)是用户home目录，跳过删除"
+                    ;;
+                "SKIP_SYSTEM_DIR")
+                    log_warning "节点 $clean_node: BASE_DIR($BASE_DIR)位于系统目录内，跳过删除"
+                    ;;
+                "CAN_DELETE")
+                    log_info "节点 $clean_node: 删除目录 $BASE_DIR"
+                    ssh_with_retry "$clean_node" "sudo rm -rf '$BASE_DIR'"
+                    ;;
+                "DIR_NOT_EXIST")
+                    log_info "节点 $clean_node: 目录 $BASE_DIR 不存在"
+                    ;;
+                *)
+                    log_warning "节点 $clean_node: 安全检查失败，跳过删除"
+                    ;;
+            esac
         fi
     }
     
