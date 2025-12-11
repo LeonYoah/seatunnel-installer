@@ -468,17 +468,22 @@ HYBRID_PORT=5801
 
 ### 分离模式端口配置
 在分离模式下，Master和Worker节点使用不同的端口：
-- Master节点默认端口：5801
+- Master节点默认端口：5801（集群通信）
+- Master HTTP API端口：8080（Web UI和REST API，SeaTunnel 2.3.9+）
 - Worker节点默认端口：5802
 - 配置示例：
 ```properties
 MASTER_PORT=5801
+MASTER_HTTP_PORT=8080
 WORKER_PORT=5802
 ```
 
 ### 端口配置注意事项
 1. 确保配置的端口未被其他服务占用
-2. 如果使用防火墙，需要开放相应端口
+2. 如果使用防火墙，需要开放相应端口：
+   - **混合模式**：开放 HYBRID_PORT（默认5801和8080）
+   - **分离模式 Master**：开放 MASTER_PORT（默认5801）和 MASTER_HTTP_PORT（默认8080）
+   - **分离模式 Worker**：开放 WORKER_PORT（默认5802）
 3. 集群内所有节点的端口配置必须一致
 4. 可以在config.properties中自定义端口，如未配置将使用默认值
 

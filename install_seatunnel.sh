@@ -3,9 +3,15 @@
 # 确保遇到错误时立即退出
 set -e
 
+# 预检测 --json 参数（在加载其他内容前）
+_JSON_MODE=false
+for arg in "$@"; do
+    [ "$arg" = "--json" ] && _JSON_MODE=true && break
+done
+
 # 获取脚本执行路径
 EXEC_PATH=$(cd "$(dirname "$0")" && pwd)
-echo "执行路径: $EXEC_PATH"
+[ "$_JSON_MODE" != "true" ] && echo "执行路径: $EXEC_PATH"
 
 # 记录开始时间
 START_TIME=$(date +%s)
@@ -14,32 +20,22 @@ START_TIME=$(date +%s)
 LOG_DIR="$EXEC_PATH/seatunnel-install-log-${INSTALL_USER:-$(whoami)}"
 LOG_FILE="$LOG_DIR/install.log"
 
-# 颜色输出函数
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARN]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
-    exit 1
-}
-log_success() {
-  echo -e "${GREEN}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
-}
+# yq相关控制
+USE_YQ=false
+COMMAND_LIB_DIR="$EXEC_PATH/lib"
 
 # 最大重试次数
 MAX_RETRIES=3
 # SSH超时时间(秒)
 SSH_TIMEOUT=10
+
+# 加载通用工具函数库
+if [ -f "$EXEC_PATH/util.sh" ]; then
+    source "$EXEC_PATH/util.sh"
+else
+    echo "[ERROR] 找不到 util.sh 文件: $EXEC_PATH/util.sh"
+    exit 1
+fi
 
 # 安装包仓库地址映射
 declare -A PACKAGE_REPOS=(
@@ -103,128 +99,6 @@ cleanup() {
 # 设置清理trap
 trap cleanup EXIT INT TERM
 
-# 带重试的SSH命令执行
-ssh_with_retry() {
-    local host=$1
-    local cmd=$2
-    local retries=0
-    
-    # 确保INSTALL_USER已设置
-    if [ -z "$INSTALL_USER" ]; then
-        log_error "INSTALL_USER未设置"
-        return 1
-    fi
-    
-    while [ $retries -lt $MAX_RETRIES ]; do
-        if timeout $SSH_TIMEOUT ssh -p $SSH_PORT "${INSTALL_USER}@${host}" "$cmd" 2>/dev/null; then
-            return 0
-        fi
-        retries=$((retries + 1))
-        log_warning "SSH到 ${INSTALL_USER}@${host} 失败，重试 $retries/$MAX_RETRIES..."
-        sleep 2
-    done
-    
-    log_error "SSH到 ${INSTALL_USER}@${host} 失败，已重试 $MAX_RETRIES 次"
-    return 1
-}
-
-# 带重试的SCP命令执行
-scp_with_retry() {
-    local src=$1
-    local host=$2
-    local dest=$3
-    local retries=0
-    
-    # 确保INSTALL_USER已设置
-    if [ -z "$INSTALL_USER" ]; then
-        log_error "INSTALL_USER未设置"
-        return 1
-    fi
-    
-    # 检查源文件/目录是否存在
-    if [ ! -e "$src" ]; then
-        log_error "源文件/目录不存在: $src"
-        return 1
-    fi
-    
-    # 测试SSH连接
-    if ! timeout $SSH_TIMEOUT ssh -p $SSH_PORT -o ConnectTimeout=5 "${INSTALL_USER}@${host}" "echo >/dev/null" 2>/dev/null; then
-        log_error "SSH连接失败: ${INSTALL_USER}@${host}"
-        return 1
-    fi
-    
-    while [ $retries -lt $MAX_RETRIES ]; do
-        log_info "正在分发到 ${host}..."
-        
-        # 使用-q参数静默输出，仅显示错误
-        if timeout $SSH_TIMEOUT scp -q -r -P $SSH_PORT "$src" "${INSTALL_USER}@${host}:$dest" 2>/dev/null; then
-            log_info "成功分发到 ${host}"
-            return 0
-        else
-            local exit_code=$?
-            # 检查目标主机磁盘空间
-            local disk_space
-            disk_space=$(ssh -p $SSH_PORT "${INSTALL_USER}@${host}" "df -h $dest" 2>/dev/null | tail -n1 | awk '{print $4}')
-            log_warning "分发失败，目标目录可用空间: ${disk_space:-未知}"
-        fi
-        
-        retries=$((retries + 1))
-        if [ $retries -lt $MAX_RETRIES ]; then
-            log_warning "分发到 ${host} 失败，重试 $retries/$MAX_RETRIES..."
-            sleep 2
-        fi
-    done
-    
-    log_error "分发到 ${host} 失败，已重试 $MAX_RETRIES 次"
-    return 1
-}
-
-# 检查文件是否存在
-check_file() {
-    if [[ ! -f "$1" ]]; then
-        log_error "文件不存在: $1"
-    fi
-}
-
-# 检查目录是否存在
-check_dir() {
-    if [[ ! -d "$1" ]]; then
-        log_error "目录不存在: $1"
-    fi
-}
-
-# 检查端口占用
-check_port() {
-    local host=$1
-    local port=$2
-    
-    # 尝试多种方式检查端口
-    if command -v nc >/dev/null 2>&1; then
-        # 如果有nc命令，优先使用
-        if nc -z -w2 "$host" "$port" >/dev/null 2>&1; then
-            log_error "端口 $port 在 $host 上已被占用"
-        fi
-    elif command -v telnet >/dev/null 2>&1; then
-        # 如果有telnet，使用telnet
-        if echo quit | timeout 2 telnet "$host" "$port" >/dev/null 2>&1; then
-            log_error "端口 $port 在 $host 上已被占用"
-        fi
-    else
-        # 最后尝试/dev/tcp
-        if timeout 2 bash -c "echo >/dev/tcp/$host/$port" >/dev/null 2>&1; then
-            log_error "端口 $port 在 $host 上已被占用"
-        fi
-    fi
-}
-
-# 替换文件内容
-replace_in_file() {
-    local search=$1
-    local replace=$2
-    local file=$3
-    sed -i "s|$search|$replace|g" "$file"
-}
-
 # 读取配置文件
 read_config() {
     local config_file="$EXEC_PATH/config.properties"
@@ -235,15 +109,16 @@ read_config() {
     BASE_DIR=$(grep "^BASE_DIR=" "$config_file" | cut -d'=' -f2)
     SSH_PORT=$(grep "^SSH_PORT=" "$config_file" | cut -d'=' -f2)
     DEPLOY_MODE=$(grep "^DEPLOY_MODE=" "$config_file" | cut -d'=' -f2)
+    # 读取用户配置
+    INSTALL_USER=$(grep "^INSTALL_USER=" "$config_file" | cut -d'=' -f2)
+    INSTALL_GROUP=$(grep "^INSTALL_GROUP=" "$config_file" | cut -d'=' -f2)
     
     # 设置下载目录
     DOWNLOAD_DIR="${BASE_DIR}/downloads"
     mkdir -p "$DOWNLOAD_DIR"
     setup_permissions "$DOWNLOAD_DIR"
     
-    # 读取用户配置
-    INSTALL_USER=$(grep "^INSTALL_USER=" "$config_file" | cut -d'=' -f2)
-    INSTALL_GROUP=$(grep "^INSTALL_GROUP=" "$config_file" | cut -d'=' -f2)
+
     
     # 根据部署模式读取节点配置
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
@@ -393,6 +268,10 @@ read_config() {
         MASTER_PORT=${MASTER_PORT:-5801}  # 默认端口5801
         WORKER_PORT=${WORKER_PORT:-5802}  # 默认端口5802
     fi
+    
+    # 读取HTTP端口(2.3.9+)
+    MASTER_HTTP_PORT=$(grep "^MASTER_HTTP_PORT=" "$config_file" | cut -d'=' -f2)
+    MASTER_HTTP_PORT=${MASTER_HTTP_PORT:-8080}
     
     # 读取安全检查配置
     CHECK_FIREWALL=$(grep "^CHECK_FIREWALL=" "$config_file" | cut -d'=' -f2)
@@ -735,112 +614,75 @@ sudo chown -R $INSTALL_USER:$INSTALL_GROUP $BASE_DIR"
     fi
 }
 
-# 设置目录权限
-setup_permissions() {
-    local dir=$1
-    log_info "设置目录权限: $dir"
-    
-    # 获取用户home目录的绝对路径
-    local user_home
-    if command -v getent >/dev/null 2>&1; then
-        user_home=$(getent passwd "$INSTALL_USER" | cut -d: -f6)
-    else
-        user_home=$(eval echo ~"$INSTALL_USER")
-    fi
-    
-    # 检查是否是用户的home目录
-    if [[ "$dir" == "$user_home" ]]; then
-        log_warning "跳过用户home目录的权限设置: $dir"
-        return 0
-    fi
-    
-    # 检查目录是否存在
-    if [ ! -d "$dir" ]; then
-        log_error "目录不存在: $dir"
-        return 1
-    fi
-    
-    # 设置目录权限
-    sudo chown -R "$INSTALL_USER:$INSTALL_GROUP" "$dir"
-    sudo chmod -R 755 "$dir"
+# SeaTunnel版本检测 (依赖util.sh中的version_ge)
+is_seatunnel_ge_239() {
+    version_ge "${SEATUNNEL_VERSION:-0}" "2.3.9"
 }
 
-# 指定用户执行命令
-run_as_user() {
-    sudo -u "$INSTALL_USER" bash -c "$1"
-}
+# ============================================================================
+# 安装步骤定义
+# ============================================================================
+# 每个步骤的名称和描述
+declare -A INSTALL_STEPS=(
+    [1]="read_config:读取配置文件"
+    [2]="check_user:检查用户配置"
+    [3]="check_firewall:检查防火墙状态"
+    [4]="check_java:检查Java环境"
+    [5]="check_dependencies:检查系统依赖"
+    [6]="check_memory:检查系统内存"
+    [7]="check_ports:检查端口占用"
+    [8]="handle_package:处理安装包"
+    [9]="setup_config:配置集群模式"
+    [10]="configure_checkpoint:配置检查点存储"
+    [11]="install_plugins:安装插件和依赖"
+    [12]="distribute_nodes:分发到其他节点"
+    [13]="setup_environment:配置环境变量"
+    [14]="setup_auto_start:配置开机自启动"
+    [15]="start_cluster:启动集群"
+    [16]="check_services:检查服务状态"
+)
+TOTAL_STEPS=${#INSTALL_STEPS[@]}
 
-# 创建目录
-create_directory() {
-    local dir=$1
-    sudo mkdir -p "$dir"
-}
+# 当前步骤状态文件
+STEP_STATUS_FILE="$EXEC_PATH/.install_step_status"
 
-# 临时文件管理
-create_temp_file() {
-    local temp_dir="$LOG_DIR/temp"
-    local temp_file
-    
-    # 创建临时目录,如果不存在）
-    if [ ! -d "$temp_dir" ]; then
-        mkdir -p "$temp_dir" || log_error "无法创建临时目录: $temp_dir"
-        chmod 700 "$temp_dir"
-        [ -n "$INSTALL_USER" ] && [ -n "$INSTALL_GROUP" ] && chown "$INSTALL_USER:$INSTALL_GROUP" "$temp_dir"
-    fi
-    
-    # 创建临时文件
-    temp_file=$(mktemp "$temp_dir/temp.XXXXXX") || log_error "无法创建临时文件"
-    chmod 600 "$temp_file"
-    [ -n "$INSTALL_USER" ] && [ -n "$INSTALL_GROUP" ] && chown "$INSTALL_USER:$INSTALL_GROUP" "$temp_file"
-    
-    # 添加到临时文件列表
-    TEMP_FILES+=("$temp_file")
-    
-    echo "$temp_file"
-}
+# 输出模式: cli / json
+OUTPUT_MODE="cli"
 
-# 清理临时文件
-cleanup_temp_files() {
-    log_info "进入cleanup_temp_files函数..."
-    
-    # 检查数组是否已定义
-    if [ -z "${TEMP_FILES+x}" ]; then
-        log_info "TEMP_FILES数组未定义，退出清理"
-        return 0
-    fi
-    
-    log_info "当前TEMP_FILES数组大小: ${#TEMP_FILES[@]}"
-    
-    local temp_dir="$LOG_DIR/temp"
-    
-    # 检查是否有临时文件需要清理
-    if [ ${#TEMP_FILES[@]} -eq 0 ]; then
-        log_info "没有临时文件需要清理"
-        return 0
-    fi
-    
-    log_info "清理临时文件..."
-    
-    # 清理所有已记录的临时文件
-    for temp_file in "${TEMP_FILES[@]}"; do
-        if [ -f "$temp_file" ]; then
-            rm -f "$temp_file"
-            log_info "已删除临时文件: $temp_file"
-        fi
-    done
-    
-    # 清理临时目录（如果为空）
-    if [ -d "$temp_dir" ] && [ -z "$(ls -A "$temp_dir")" ]; then
-        rm -rf "$temp_dir"
-        log_info "已删除空的临时目录: $temp_dir"
-    fi
-}
-
-# 在文件开头添加参数处理
 # 默认使用自动选择模式
 FORCE_SED=false
 ONLY_INSTALL_PLUGINS=false
 NO_PLUGINS=false
+RUN_STEP=""           # 指定运行的步骤
+STOP_AT_STEP=""       # 停止在指定步骤
+LIST_STEPS=false      # 列出所有步骤
+WEB_MODE=false        # Web模式
+
+# 显示帮助信息 (必须在参数解析之前定义)
+show_help() {
+    cat << 'EOF'
+SeaTunnel 安装脚本
+
+用法: ./install_seatunnel.sh [选项]
+
+选项:
+    --list-steps        列出所有安装步骤
+    --step <N>          仅执行指定步骤 (1-16)
+    --stop-at <N>       执行到指定步骤后停止
+    --json              输出 JSON 格式 (用于 Web 模式)
+    --install-plugins   仅安装/更新插件
+    --no-plugins        不安装插件
+    --force-sed         强制使用 sed 修改配置
+    --help, -h          显示此帮助信息
+
+示例:
+    ./install_seatunnel.sh                    # 完整安装
+    ./install_seatunnel.sh --list-steps       # 查看所有步骤
+    ./install_seatunnel.sh --stop-at 7        # 执行到端口检查后停止
+    ./install_seatunnel.sh --step 8           # 仅执行安装包处理
+    ./install_seatunnel.sh --json --step 1    # JSON格式输出执行步骤1
+EOF
+}
 
 # 解析命令行参数
 while [[ "$#" -gt 0 ]]; do
@@ -848,10 +690,80 @@ while [[ "$#" -gt 0 ]]; do
         --force-sed) FORCE_SED=true ;;
         --install-plugins) ONLY_INSTALL_PLUGINS=true ;;
         --no-plugins) NO_PLUGINS=true ;;
+        --step) RUN_STEP="$2"; shift ;;
+        --stop-at) STOP_AT_STEP="$2"; shift ;;
+        --list-steps) LIST_STEPS=true ;;
+        --json) OUTPUT_MODE="json" ;;
+        --help|-h) show_help; exit 0 ;;
         *) log_error "未知参数: $1" ;;
     esac
     shift
 done
+
+# 列出所有步骤
+list_all_steps() {
+    if [ "$OUTPUT_MODE" = "json" ]; then
+        echo '{"steps":['
+        local first=true
+        for i in $(seq 1 $TOTAL_STEPS); do
+            local step_info="${INSTALL_STEPS[$i]}"
+            local step_func="${step_info%%:*}"
+            local step_desc="${step_info#*:}"
+            [ "$first" = true ] && first=false || echo ','
+            echo "{\"step\":$i,\"name\":\"$step_func\",\"description\":\"$step_desc\"}"
+        done
+        echo ']}'
+    else
+        echo ""
+        echo "SeaTunnel 安装步骤:"
+        echo "============================================"
+        for i in $(seq 1 $TOTAL_STEPS); do
+            local step_info="${INSTALL_STEPS[$i]}"
+            local step_func="${step_info%%:*}"
+            local step_desc="${step_info#*:}"
+            printf "  %2d. %-25s %s\n" "$i" "$step_func" "$step_desc"
+        done
+        echo ""
+        echo "用法: ./install_seatunnel.sh --step <N>    执行指定步骤"
+        echo "      ./install_seatunnel.sh --stop-at <N> 执行到指定步骤停止"
+        echo ""
+    fi
+}
+
+# JSON 输出函数
+json_output() {
+    local status="$1"
+    local step="$2"
+    local message="$3"
+    local extra="${4:-}"
+    
+    if [ "$OUTPUT_MODE" = "json" ]; then
+        local json="{\"status\":\"$status\",\"step\":$step,\"message\":\"$message\""
+        [ -n "$extra" ] && json+=",$extra"
+        json+="}"
+        echo "$json"
+    fi
+}
+
+# 保存步骤状态
+save_step_status() {
+    local step="$1"
+    local status="$2"
+    echo "$step:$status" >> "$STEP_STATUS_FILE"
+}
+
+# 获取步骤状态
+get_step_status() {
+    local step="$1"
+    if [ -f "$STEP_STATUS_FILE" ]; then
+        grep "^$step:" "$STEP_STATUS_FILE" | tail -1 | cut -d':' -f2
+    fi
+}
+
+# 清除步骤状态
+clear_step_status() {
+    rm -f "$STEP_STATUS_FILE"
+}
 
 # 修改check_command函数
 check_command() {
@@ -989,7 +901,6 @@ replace_yaml_section() {
 # 修改hazelcast配置文件
 modify_hazelcast_config() {
     local config_file=$1
-    local content
     
     # 备份文件
     cp "$config_file" "${config_file}.bak"
@@ -998,68 +909,77 @@ modify_hazelcast_config() {
         *"hazelcast.yaml")
             log_info "修改 hazelcast.yaml (集群通信配置)..."
             if [ "$DEPLOY_MODE" = "hybrid" ]; then
-                # 生成新的member-list内容
-                content=$(for node in "${ALL_NODES[@]}"; do
-                    echo "- ${node}:${HYBRID_PORT:-5801}"
-                done)
-                replace_yaml_section "$config_file" "member-list:" 10 "$content"
+                # 构建member-list数组
+                local members_json="["
+                for node in "${ALL_NODES[@]}"; do
+                    members_json+="\"${node}:${HYBRID_PORT:-5801}\","
+                done
+                members_json="${members_json%,}]"  # 移除最后的逗号
                 
-                # 修改端口配置
-                sed -i "s/port: [0-9]\+/port: ${HYBRID_PORT:-5801}/" "$config_file"
+                # 使用yq修改member-list和port
+                replace_yaml_with_yq "$config_file" \
+                    ".hazelcast.network.join.\"tcp-ip\".\"member-list\" = $members_json | .hazelcast.network.port.port = ${HYBRID_PORT:-5801}"
             fi
             ;;
         *"hazelcast-client.yaml")
             log_info "修改 hazelcast-client.yaml (客户端连接配置)..."
-            # 生成新的cluster-members内容
+            # 生成cluster-members数组
+            local members_json="["
             if [ "$DEPLOY_MODE" = "hybrid" ]; then
                 log_info "混合模式: 客户端可连接任意节点的 ${HYBRID_PORT:-5801} 端口"
-                content=$(for node in "${ALL_NODES[@]}"; do
-                    echo "- ${node}:${HYBRID_PORT:-5801}"
-                done)
+                for node in "${ALL_NODES[@]}"; do
+                    members_json+="\"${node}:${HYBRID_PORT:-5801}\","
+                done
             else
                 log_info "分离模式: 客户端仅连接Master节点的 ${MASTER_PORT:-5801} 端口"
-                content=$(for master in "${MASTER_IPS[@]}"; do
-                    echo "- ${master}:${MASTER_PORT:-5801}"
-                done)
+                for master in "${MASTER_IPS[@]}"; do
+                    members_json+="\"${master}:${MASTER_PORT:-5801}\","
+                done
             fi
-            replace_yaml_section "$config_file" "cluster-members:" 6 "$content"
+            members_json="${members_json%,}]"  # 移除最后的逗号
+            
+            # 使用yq修改cluster-members
+            replace_yaml_with_yq "$config_file" \
+                ".\"hazelcast-client\".network.\"cluster-members\" = $members_json"
             ;;
         *"hazelcast-master.yaml")
             if [ "$DEPLOY_MODE" != "hybrid" ]; then
                 log_info "修改 hazelcast-master.yaml (Master节点配置)..."
-                log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，master使用 ${MASTER_PORT:-5801} 端口"
-                # 生成新的member-list内容
-                content=$(
-                    for master in "${MASTER_IPS[@]}"; do
-                        echo "- ${master}:${MASTER_PORT:-5801}"
-                    done
-                    for worker in "${WORKER_IPS[@]}"; do
-                        echo "- ${worker}:${WORKER_PORT:-5802}"
-                    done
-                )
-                replace_yaml_section "$config_file" "member-list:" 10 "$content"
+                log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，Worker使用 ${WORKER_PORT:-5802} 端口"
                 
-                # 修改端口配置
-                sed -i "s/port: [0-9]\+/port: ${MASTER_PORT:-5801}/" "$config_file"
+                # 构建member-list数组（包含master和worker）
+                local members_json="["
+                for master in "${MASTER_IPS[@]}"; do
+                    members_json+="\"${master}:${MASTER_PORT:-5801}\","
+                done
+                for worker in "${WORKER_IPS[@]}"; do
+                    members_json+="\"${worker}:${WORKER_PORT:-5802}\","
+                done
+                members_json="${members_json%,}]"  # 移除最后的逗号
+                
+                # 使用yq修改member-list和port
+                replace_yaml_with_yq "$config_file" \
+                    ".hazelcast.network.join.\"tcp-ip\".\"member-list\" = $members_json | .hazelcast.network.port.port = ${MASTER_PORT:-5801}"
             fi
             ;;
         *"hazelcast-worker.yaml")
             if [ "$DEPLOY_MODE" != "hybrid" ]; then
                 log_info "修改 hazelcast-worker.yaml (Worker节点配置)..."
                 log_info "分离模式: Master使用 ${MASTER_PORT:-5801} 端口，Worker使用 ${WORKER_PORT:-5802} 端口"
-                # 生成新的member-list内容
-                content=$(
-                    for master in "${MASTER_IPS[@]}"; do
-                        echo "- ${master}:${MASTER_PORT:-5801}"
-                    done
-                    for worker in "${WORKER_IPS[@]}"; do
-                        echo "- ${worker}:${WORKER_PORT:-5802}"
-                    done
-                )
-                replace_yaml_section "$config_file" "member-list:" 10 "$content"
                 
-                # 修改端口配置
-                sed -i "s/port: [0-9]\+/port: ${WORKER_PORT:-5802}/" "$config_file"
+                # 构建member-list数组（包含master和worker）
+                local members_json="["
+                for master in "${MASTER_IPS[@]}"; do
+                    members_json+="\"${master}:${MASTER_PORT:-5801}\","
+                done
+                for worker in "${WORKER_IPS[@]}"; do
+                    members_json+="\"${worker}:${WORKER_PORT:-5802}\","
+                done
+                members_json="${members_json%,}]"  # 移除最后的逗号
+                
+                # 使用yq修改member-list和port
+                replace_yaml_with_yq "$config_file" \
+                    ".hazelcast.network.join.\"tcp-ip\".\"member-list\" = $members_json | .hazelcast.network.port.port = ${WORKER_PORT:-5802}"
             fi
             ;;
     esac
@@ -1200,6 +1120,14 @@ configure_jvm_options() {
     # 备份原始文件
     cp "$file" "${file}.bak"
     
+    # SeaTunnel 2.3.9+ 的 jvm_options 文件中 -Xms/-Xmx 默认是注释状态: # -Xms2g
+    # 需要先去掉注释，再修改内存值
+    if is_seatunnel_ge_239; then
+        # 去掉 # -Xms 和 # -Xmx 行的注释符号
+        sed -i 's/^#[[:space:]]*\(-Xms[0-9]\+g\)/\1/' "$file"
+        sed -i 's/^#[[:space:]]*\(-Xmx[0-9]\+g\)/\1/' "$file"
+    fi
+    
     # 修改JVM堆内存配置
     sed -i "s/-Xms[0-9]\+g/-Xms${heap_size}g/" "$file"
     sed -i "s/-Xmx[0-9]\+g/-Xmx${heap_size}g/" "$file"
@@ -1211,21 +1139,37 @@ check_ports() {
     local occupied_ports=()
     
     if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        local port=${HYBRID_PORT:-5801}
+        local service_port=${HYBRID_PORT:-5801}
+        local http_port=${MASTER_HTTP_PORT:-8080}
         for node in "${ALL_NODES[@]}"; do
-            if ! check_port "$node" "$port" 2>/dev/null; then
-                occupied_ports+=("$node:$port")
+            if ! check_port "$node" "$service_port" 2>/dev/null; then
+                occupied_ports+=("$node:$service_port")
+            fi
+            if is_seatunnel_ge_239; then
+                if ! check_port "$node" "$http_port" 2>/dev/null; then
+                    occupied_ports+=("$node:$http_port(HTTP)")
+                fi
             fi
         done
     else
         local master_port=${MASTER_PORT:-5801}
         local worker_port=${WORKER_PORT:-5802}
+        local master_http_port=${MASTER_HTTP_PORT:-8080}
         
+        # 检查Master节点端口
         for master in "${MASTER_IPS[@]}"; do
             if ! check_port "$master" "$master_port" 2>/dev/null; then
                 occupied_ports+=("$master:$master_port")
             fi
+            # 检查Master HTTP API端口 (SeaTunnel 2.3.9+)
+            if is_seatunnel_ge_239; then
+                if ! check_port "$master" "$master_http_port" 2>/dev/null; then
+                    occupied_ports+=("$master:$master_http_port(HTTP)")
+                fi
+            fi
         done
+        
+        # 检查Worker节点端口
         for worker in "${WORKER_IPS[@]}"; do
             if ! check_port "$worker" "$worker_port" 2>/dev/null; then
                 occupied_ports+=("$worker:$worker_port")
@@ -1446,8 +1390,50 @@ disable.cache: true"
             ;;
     esac
     
-    # 替换plugin-config部分，调整缩进值为10
-    replace_yaml_section "$SEATUNNEL_HOME/config/seatunnel.yaml" "plugin-config:" 10 "$content"
+    # 使用yq修改plugin-config
+    local seatunnel_yaml="$SEATUNNEL_HOME/config/seatunnel.yaml"
+    case "$CHECKPOINT_STORAGE_TYPE" in
+        LOCAL_FILE)
+            replace_yaml_with_yq "$seatunnel_yaml" \
+                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "local"}' \
+                "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE'"
+            ;;
+        HDFS)
+            replace_yaml_with_yq "$seatunnel_yaml" \
+                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "hdfs", "fs.defaultFS": ("hdfs://" + env(HDFS_NAMENODE_HOST) + ":" + env(HDFS_NAMENODE_PORT))}' \
+                "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE' HDFS_NAMENODE_HOST='$HDFS_NAMENODE_HOST' HDFS_NAMENODE_PORT='$HDFS_NAMENODE_PORT'"
+            ;;
+        OSS)
+            replace_yaml_with_yq "$seatunnel_yaml" \
+                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "oss", "oss.bucket": env(STORAGE_BUCKET), "fs.oss.endpoint": env(STORAGE_ENDPOINT), "fs.oss.accessKeyId": env(STORAGE_ACCESS_KEY), "fs.oss.accessKeySecret": env(STORAGE_SECRET_KEY)}' \
+                "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE' STORAGE_BUCKET='$STORAGE_BUCKET' STORAGE_ENDPOINT='$STORAGE_ENDPOINT' STORAGE_ACCESS_KEY='$STORAGE_ACCESS_KEY' STORAGE_SECRET_KEY='$STORAGE_SECRET_KEY'"
+            ;;
+        S3)
+            replace_yaml_with_yq "$seatunnel_yaml" \
+                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "s3", "s3.bucket": env(STORAGE_BUCKET), "fs.s3a.endpoint": env(STORAGE_ENDPOINT), "fs.s3a.access.key": env(STORAGE_ACCESS_KEY), "fs.s3a.secret.key": env(STORAGE_SECRET_KEY), "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider", "disable.cache": true}' \
+                "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE' STORAGE_BUCKET='$STORAGE_BUCKET' STORAGE_ENDPOINT='$STORAGE_ENDPOINT' STORAGE_ACCESS_KEY='$STORAGE_ACCESS_KEY' STORAGE_SECRET_KEY='$STORAGE_SECRET_KEY'"
+            ;;
+    esac
+}
+
+# 配置Master HTTP API端口 (SeaTunnel 2.3.9+)
+configure_master_http_port() {
+    local seatunnel_yaml="$SEATUNNEL_HOME/config/seatunnel.yaml"
+    local http_port=${MASTER_HTTP_PORT:-8080}
+    
+    log_info "配置Master HTTP API端口: $http_port"
+    
+    # 检查seatunnel.yaml是否存在http配置节
+    if grep -q "seatunnel:" "$seatunnel_yaml" && grep -q "engine:" "$seatunnel_yaml"; then
+        # 使用yq修改HTTP端口配置
+        replace_yaml_with_yq "$seatunnel_yaml" \
+            '.seatunnel.engine.http."enable-http" = true | .seatunnel.engine.http.port = env(HTTP_PORT) | .seatunnel.engine.http."enable-dynamic-port" = false' \
+            "HTTP_PORT='$http_port'"
+        
+        log_info "Master HTTP API端口已配置为: $http_port"
+    else
+        log_warning "seatunnel.yaml中未找到engine配置节，跳过HTTP端口配置"
+    fi
 }
 
 # 检查Java环境
@@ -2068,8 +2054,8 @@ install_plugins_and_libs() {
         
         # 读取并处理连接器的依赖库
         local libs_str
-        libs_str=$(grep "^${connector}_libs=" "$config_file" | cut -d'=' -f2)
-        
+        libs_str=$(grep "^${connector}_libs=" "$config_file" | cut -d'=' -f2 || true)
+                  
         if [ -n "$libs_str" ]; then
             log_info "处理 $connector 连接器的依赖库..."
             IFS=',' read -r -a libs <<< "$libs_str"
@@ -2208,8 +2194,10 @@ create_service_file() {
     esac
 
     # 从JVM配置文件读取堆内存大小
+    # SeaTunnel 2.3.9+ 的 jvm_options 文件中 -Xmx 可能是注释状态: # -Xmx2g
+    # 需要兼容两种格式: -Xmx2g 或 # -Xmx2g
     local heap_size
-    heap_size=$(grep "^-Xmx" "$jvm_options_file" | sed 's/-Xmx\([0-9]\+\)g/\1/')
+    heap_size=$(grep -E '^#?[[:space:]]*-Xmx[0-9]+g' "$jvm_options_file" | sed 's/^#[[:space:]]*//' | sed 's/-Xmx\([0-9]\+\)g/\1/' || echo "2")
     
     # 读取所有JVM配置
     local jvm_opts=""
@@ -2972,9 +2960,16 @@ check_firewall() {
         # 根据部署模式确定需要检查的端口
         if [ "$DEPLOY_MODE" = "hybrid" ]; then
             ports+=("${HYBRID_PORT:-5801}")
+            if is_seatunnel_ge_239; then
+                ports+=("${MASTER_HTTP_PORT:-8080}")
+            fi
         else
             if [[ " ${MASTER_IPS[*]} " =~ " $node " ]]; then
                 ports+=("${MASTER_PORT:-5801}")
+                # 添加Master HTTP API端口检查 (SeaTunnel 2.3.9+)
+                if is_seatunnel_ge_239; then
+                    ports+=("${MASTER_HTTP_PORT:-8080}")
+                fi
             fi
             if [[ " ${WORKER_IPS[*]} " =~ " $node " ]]; then
                 ports+=("${WORKER_PORT:-5802}")
@@ -3259,11 +3254,143 @@ check_firewall() {
     fi
 }
 
+# ============================================================================
+# 执行单个步骤
+# ============================================================================
+execute_step() {
+    local step_num="$1"
+    local step_info="${INSTALL_STEPS[$step_num]}"
+    local step_func="${step_info%%:*}"
+    local step_desc="${step_info#*:}"
+    
+    if [ -z "$step_info" ]; then
+        log_error "无效的步骤编号: $step_num"
+        return 1
+    fi
+    
+    log_info "[$step_num/$TOTAL_STEPS] $step_desc..."
+    json_output "running" "$step_num" "$step_desc"
+    save_step_status "$step_num" "running"
+    
+    local result=0
+    case "$step_func" in
+        read_config)
+            read_config || result=$?
+            ;;
+        check_user)
+            check_user || result=$?
+            ;;
+        check_firewall)
+            check_firewall || result=$?
+            ;;
+        check_java)
+            # 检查节点java环境
+            if [ "$DEPLOY_MODE" = "hybrid" ]; then
+                for node in "${ALL_NODES[@]}"; do
+                    if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
+                        check_java "$node" "true" || result=$?
+                    else 
+                        check_java "localhost" "false" || result=$?
+                    fi
+                done
+            else
+                for master in "${MASTER_IPS[@]}"; do
+                    if [ "$master" != "localhost" ] && [ "$master" != "$(hostname -I | awk '{print $1}')" ]; then
+                        check_java "$master" "true" || result=$?
+                    else 
+                        check_java "localhost" "false" || result=$?
+                    fi
+                done
+                for worker in "${WORKER_IPS[@]}"; do
+                    if [ "$worker" != "localhost" ] && [ "$worker" != "$(hostname -I | awk '{print $1}')" ]; then
+                        check_java "$worker" "true" || result=$?
+                    else 
+                        check_java "localhost" "false" || result=$?
+                    fi
+                done
+            fi
+            ;;
+        check_dependencies)
+            check_dependencies || result=$?
+            ensure_yq || true
+            handle_selinux || true
+            ;;
+        check_memory)
+            check_memory || result=$?
+            ;;
+        check_ports)
+            check_ports || result=$?
+            ;;
+        handle_package)
+            handle_package || result=$?
+            ;;
+        setup_config)
+            if [ "$DEPLOY_MODE" = "hybrid" ]; then
+                setup_hybrid_mode || result=$?
+            else
+                setup_separated_mode || result=$?
+            fi
+            # 配置Master HTTP端口 (SeaTunnel 2.3.9+)
+            if is_seatunnel_ge_239; then
+                if [ "$DEPLOY_MODE" = "separated" ]; then
+                    configure_master_http_port || true
+                fi
+            fi
+            ;;
+        configure_checkpoint)
+            configure_checkpoint || result=$?
+            ;;
+        install_plugins)
+            install_plugins_and_libs || result=$?
+            setup_cluster_scripts || true
+            sed -i "s/root/$INSTALL_USER/g" "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh" 2>/dev/null || true
+            ;;
+        distribute_nodes)
+            distribute_to_nodes || result=$?
+            ;;
+        setup_environment)
+            setup_environment || result=$?
+            ;;
+        setup_auto_start)
+            setup_auto_start || result=$?
+            ;;
+        start_cluster)
+            start_cluster || result=$?
+            ;;
+        check_services)
+            check_services || result=$?
+            show_completion_info || true
+            ;;
+        *)
+            log_error "未知步骤函数: $step_func"
+            result=1
+            ;;
+    esac
+    
+    if [ $result -eq 0 ]; then
+        save_step_status "$step_num" "completed"
+        json_output "completed" "$step_num" "$step_desc 完成"
+        log_success "[$step_num/$TOTAL_STEPS] $step_desc 完成"
+    else
+        save_step_status "$step_num" "failed"
+        json_output "failed" "$step_num" "$step_desc 失败"
+        log_error "[$step_num/$TOTAL_STEPS] $step_desc 失败"
+    fi
+    
+    return $result
+}
+
 # 主函数
 main() {
-    # 读取配置
-    log_info "开始读取配置文件..."
-    read_config
+    # 如果是列出步骤模式
+    if [ "$LIST_STEPS" = true ]; then
+        list_all_steps
+        exit 0
+    fi
+    
+    # 初始化临时文件列表
+    declare -a TEMP_FILES=()
+    trap cleanup_temp_files EXIT INT TERM
     
     # 检查参数冲突
     if [ "$NO_PLUGINS" = true ] && [ "$ONLY_INSTALL_PLUGINS" = true ]; then
@@ -3273,7 +3400,7 @@ main() {
     # 如果是仅安装插件模式
     if [ "$ONLY_INSTALL_PLUGINS" = true ]; then
         log_info "仅安装/更新插件模式..."
-        # 检查SEATUNNEL_HOME是否存在
+        read_config
         if [ ! -d "$SEATUNNEL_HOME" ]; then
             log_error "SeaTunnel安装目录不存在: $SEATUNNEL_HOME"
         fi
@@ -3285,114 +3412,73 @@ main() {
     # 如果指定了--no-plugins，覆盖配置文件中的设置
     if [ "$NO_PLUGINS" = true ]; then
         INSTALL_CONNECTORS=false
-        log_info "命令行参数指定不安装插件，已覆盖配置文件设置"
-    fi
-
-    # 检查用户配置
-    log_info "检查用户配置..."
-    check_user
-
-    # 检查防火墙状态
-    check_firewall
-    
-    # 检查Java环境
-    log_info "开始检查所有节点的Java环境..."
-    
-    # 检查节点java环境
-    if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        # 混合模式：检查所有节点
-        for node in "${ALL_NODES[@]}"; do
-            if [ "$node" != "localhost" ] && [ "$node" != "$(hostname -I | awk '{print $1}')" ]; then
-                check_java "$node" "true"
-            else 
-                check_java "localhost" "false"
-            fi
-        done
-    else
-        # 分离模式：检查master和worker节点
-        for master in "${MASTER_IPS[@]}"; do
-            if [ "$master" != "localhost" ] && [ "$master" != "$(hostname -I | awk '{print $1}')" ]; then
-                check_java "$master" "true"
-            else 
-                check_java "localhost" "false"
-            fi
-        done
-        for worker in "${WORKER_IPS[@]}"; do
-            if [ "$worker" != "localhost" ] && [ "$worker" != "$(hostname -I | awk '{print $1}')" ]; then
-                check_java "$worker" "true"
-            else 
-                check_java "localhost" "false"
-            fi
-        done
     fi
     
-    # 检查系统依赖
-    log_info "开始检查系统依赖..."
-    check_dependencies
+    # 确定执行范围
+    local start_step=1
+    local end_step=$TOTAL_STEPS
     
-    # 处理SELinux
-    log_info "开始处理SELinux..."
-    handle_selinux
-    
-    # 初始化临时文件列表
-    log_info "初始化临时文件列表..."
-    declare -a TEMP_FILES=()
-    
-    # 设置退出时清理
-    log_info "设置退出清理..."
-    trap cleanup_temp_files EXIT INT TERM
-    
-
-    
-    # 检查系统内存
-    log_info "检查系统内存..."
-    check_memory
-    
-    # 检查端口占用
-    log_info "检查端口占用..."
-    check_ports
-    
-    # 处理安装包
-    handle_package
-    
-    # 配置文件修改
-    log_info "修改配置文件..."
-    
-    if [ "$DEPLOY_MODE" = "hybrid" ]; then
-        setup_hybrid_mode
-    else
-        setup_separated_mode
+    if [ -n "$RUN_STEP" ]; then
+        # 仅执行指定步骤
+        if ! [[ "$RUN_STEP" =~ ^[0-9]+$ ]] || [ "$RUN_STEP" -lt 1 ] || [ "$RUN_STEP" -gt $TOTAL_STEPS ]; then
+            log_error "无效的步骤编号: $RUN_STEP (有效范围: 1-$TOTAL_STEPS)"
+        fi
+        start_step=$RUN_STEP
+        end_step=$RUN_STEP
+        
+        # 单步执行时，如果不是第一步，需要先读取配置
+        if [ "$RUN_STEP" -gt 1 ]; then
+            log_info "加载配置..."
+            read_config
+        fi
     fi
     
-    # 配置检查点存储
-    log_info "配置检查点存储..."
-    configure_checkpoint
+    if [ -n "$STOP_AT_STEP" ]; then
+        if ! [[ "$STOP_AT_STEP" =~ ^[0-9]+$ ]] || [ "$STOP_AT_STEP" -lt 1 ] || [ "$STOP_AT_STEP" -gt $TOTAL_STEPS ]; then
+            log_error "无效的停止步骤: $STOP_AT_STEP (有效范围: 1-$TOTAL_STEPS)"
+        fi
+        end_step=$STOP_AT_STEP
+    fi
     
-    # 安装插件和依赖
-    log_info "安装插件和依赖..."
-    install_plugins_and_libs
+    # 清除旧状态（完整安装时）
+    if [ -z "$RUN_STEP" ] && [ "$start_step" -eq 1 ]; then
+        clear_step_status
+    fi
     
-    # 添加集群管理脚本
-    setup_cluster_scripts
-    sed -i "s/root/$INSTALL_USER/g" "$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh"
+    # 显示执行计划
+    if [ "$OUTPUT_MODE" != "json" ]; then
+        echo ""
+        echo "============================================"
+        echo "SeaTunnel 安装向导"
+        echo "============================================"
+        if [ -n "$RUN_STEP" ]; then
+            echo "执行步骤: $RUN_STEP"
+        else
+            echo "执行步骤: $start_step - $end_step"
+        fi
+        echo "============================================"
+        echo ""
+    fi
     
-    # 分发到其他节点
-    distribute_to_nodes
+    # 执行步骤
+    for step in $(seq $start_step $end_step); do
+        if ! execute_step "$step"; then
+            log_error "步骤 $step 执行失败，安装中止"
+            exit 1
+        fi
+        
+        # 检查是否需要停止
+        if [ -n "$STOP_AT_STEP" ] && [ "$step" -eq "$STOP_AT_STEP" ]; then
+            log_info "已执行到指定步骤 $STOP_AT_STEP，停止安装"
+            log_info "继续安装请运行: ./install_seatunnel.sh --step $((step + 1))"
+            break
+        fi
+    done
     
-    # 配置环境变量
-    setup_environment
-    
-    # 配置开机自启动
-    setup_auto_start
-    
-    # 启动集群
-    start_cluster
-    
-    # 检查服务状态
-    check_services
-    
-    # 显示安装完成信息
-    show_completion_info
+    if [ "$OUTPUT_MODE" != "json" ] && [ -z "$STOP_AT_STEP" ] && [ -z "$RUN_STEP" ]; then
+        echo ""
+        log_success "SeaTunnel 安装完成!"
+    fi
 }
 
 # 执行主函数

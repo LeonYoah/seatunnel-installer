@@ -1,0 +1,453 @@
+/* SeaTunnel Installer v2.0 - 双栏布局 */
+:root {
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+/* 双栏布局 */
+.layout {
+    display: flex;
+    height: 100vh;
+}
+
+/* 左侧主面板 */
+.main-panel {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    max-width: calc(100% - 380px);
+}
+
+/* 右侧日志面板 */
+.log-panel {
+    width: 380px;
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid #1e293b;
+}
+
+.log-toolbar {
+    padding: 12px 16px;
+    background: #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.log-title {
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.btn-refresh {
+    padding: 6px 12px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-refresh:hover {
+    background: var(--primary-dark);
+}
+
+.log-content {
+    flex: 1;
+    padding: 16px;
+    color: #94a3b8;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
+
+.log-error { color: #f87171; font-weight: 600; }
+.log-warn { color: #fbbf24; }
+.log-success { color: #4ade80; }
+.log-debug { color: #64748b; }
+
+/* Header */
+header {
+    margin-bottom: 20px;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* 步骤导航 */
+.steps-nav {
+    display: flex;
+    gap: 8px;
+    background: var(--surface);
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.step-nav {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    border: 2px solid transparent;
+}
+
+.step-nav:hover {
+    background: #e2e8f0;
+}
+
+.step-nav.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.step-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.step-nav.active .step-num {
+    background: rgba(255,255,255,0.2);
+}
+
+.step-title {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.step-status {
+    margin-left: auto;
+    font-size: 14px;
+}
+
+/* 阶段面板 */
+.phase-panel {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.phase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.phase-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.running {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-badge.completed {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.status-badge.failed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.hidden { display: none !important; }
+
+/* 步骤列表 */
+.steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.step-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.step-row .step-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+
+.step-row .step-text {
+    font-size: 14px;
+    flex: 1;
+}
+
+.step-row.status-running {
+    border-color: var(--primary);
+    background: #eff6ff;
+}
+
+.step-row.status-completed {
+    border-color: var(--success);
+    background: #f0fdf4;
+}
+
+.step-row.status-failed {
+    border-color: var(--error);
+    background: #fef2f2;
+}
+
+.btn-retry-step {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: var(--error);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.btn-retry-step:hover {
+    background: #dc2626;
+}
+
+/* 表单 */
+.config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-card {
+    background: var(--bg);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.form-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.form-item {
+    margin-bottom: 12px;
+}
+
+.form-item:last-child {
+    margin-bottom: 0;
+}
+
+.form-item label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text);
+}
+
+.form-item input,
+.form-item select {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    transition: border-color 0.2s;
+}
+
+.form-item input:focus,
+.form-item select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 阶段底部 */
+.phase-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+/* 按钮 */
+.btn {
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-dark);
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-outline:hover:not(:disabled) {
+    background: var(--bg);
+    border-color: var(--muted);
+}
+
+/* 结果页 */
+.result-content {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.result-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.result-content h3 {
+    font-size: 1.5rem;
+    color: var(--success);
+    margin-bottom: 24px;
+}
+
+.result-details {
+    text-align: left;
+    background: var(--bg);
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.result-details p {
+    font-weight: 600;
+    margin-bottom: 8px;
+    margin-top: 16px;
+}
+
+.result-details p:first-child {
+    margin-top: 0;
+}
+
+.result-details code {
+    display: block;
+    background: #1e293b;
+    color: #a5f3fc;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+    .layout {
+        flex-direction: column;
+    }
+    
+    .main-panel {
+        max-width: 100%;
+    }
+    
+    .log-panel {
+        width: 100%;
+        height: 300px;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .steps-nav {
+        flex-wrap: wrap;
+    }
+    
+    .step-nav {
+        flex: 0 0 calc(50% - 4px);
+    }
+}

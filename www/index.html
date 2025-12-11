@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeaTunnel 安装向导</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="layout">
+        <main class="main-panel">
+            <header>
+                <h1>🚀 SeaTunnel 安装向导</h1>
+            </header>
+            <nav class="steps-nav">
+                <div class="step-nav active" data-phase="1">
+                    <span class="step-num">1</span>
+                    <span class="step-title">配置</span>
+                    <span class="step-status" id="navStatus1"></span>
+                </div>
+                <div class="step-nav" data-phase="2">
+                    <span class="step-num">2</span>
+                    <span class="step-title">环境检查</span>
+                    <span class="step-status" id="navStatus2"></span>
+                </div>
+                <div class="step-nav" data-phase="3">
+                    <span class="step-num">3</span>
+                    <span class="step-title">安装部署</span>
+                    <span class="step-status" id="navStatus3"></span>
+                </div>
+                <div class="step-nav" data-phase="4">
+                    <span class="step-num">4</span>
+                    <span class="step-title">分发启动</span>
+                    <span class="step-status" id="navStatus4"></span>
+                </div>
+                <div class="step-nav" data-phase="5">
+                    <span class="step-num">5</span>
+                    <span class="step-title">完成</span>
+                    <span class="step-status" id="navStatus5"></span>
+                </div>
+            </nav>
+
+            <section class="phase-panel" id="phase1">
+                <div class="phase-header"><h2>📝 安装配置</h2></div>
+                <form id="configForm" class="config-form">
+                    <div class="form-card">
+                        <h3>基础配置</h3>
+                        <div class="form-grid">
+                            <div class="form-item">
+                                <label>SeaTunnel 版本</label>
+                                <select name="SEATUNNEL_VERSION">
+                                    <option value="2.3.12">2.3.12</option>
+                                    <option value="2.3.11">2.3.11</option>
+                                    <option value="2.3.10">2.3.10</option>
+                                </select>
+                            </div>
+                            <div class="form-item">
+                                <label>安装模式</label>
+                                <select name="INSTALL_MODE">
+                                    <option value="offline">离线安装</option>
+                                    <option value="online">在线安装</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-item">
+                            <label>安装目录</label>
+                            <input type="text" name="BASE_DIR" value="/home/seatunnel/seatunnel-package">
+                        </div>
+                        <div class="form-item">
+                            <label>部署模式</label>
+                            <select name="DEPLOY_MODE" id="deployMode">
+                                <option value="separated">分离模式</option>
+                                <option value="hybrid">混合模式</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-card" id="separatedConfig">
+                        <h3>节点配置 (分离模式)</h3>
+                        <div class="form-item">
+                            <label>Master IP</label>
+                            <input type="text" name="MASTER_IP" placeholder="192.168.1.100">
+                        </div>
+                        <div class="form-item">
+                            <label>Worker IPs (逗号分隔)</label>
+                            <input type="text" name="WORKER_IPS" placeholder="192.168.1.101,192.168.1.102">
+                        </div>
+                    </div>
+                    <div class="form-card hidden" id="hybridConfig">
+                        <h3>节点配置 (混合模式)</h3>
+                        <div class="form-item">
+                            <label>集群节点 (逗号分隔)</label>
+                            <input type="text" name="CLUSTER_NODES" placeholder="192.168.1.100">
+                        </div>
+                    </div>
+                    <div class="form-card">
+                        <h3>JVM 配置</h3>
+                        <div class="form-grid">
+                            <div class="form-item">
+                                <label>Master 堆内存 (GB)</label>
+                                <input type="number" name="MASTER_HEAP_SIZE" value="1" min="1">
+                            </div>
+                            <div class="form-item">
+                                <label>Worker 堆内存 (GB)</label>
+                                <input type="number" name="WORKER_HEAP_SIZE" value="2" min="1">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-card">
+                        <h3>用户配置</h3>
+                        <div class="form-grid">
+                            <div class="form-item">
+                                <label>安装用户</label>
+                                <input type="text" name="INSTALL_USER" value="root">
+                            </div>
+                            <div class="form-item">
+                                <label>SSH 端口</label>
+                                <input type="number" name="SSH_PORT" value="22">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div class="phase-footer">
+                    <button class="btn btn-primary" id="btnSaveStart">保存配置并开始安装</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase2">
+                <div class="phase-header">
+                    <h2>🔍 环境检查</h2>
+                    <span class="status-badge" id="badge2"></span>
+                </div>
+                <div class="steps-list">
+                    <div class="step-row" data-step="1"><span class="step-icon">⏳</span><span class="step-text">1. 读取配置文件</span></div>
+                    <div class="step-row" data-step="2"><span class="step-icon">⏳</span><span class="step-text">2. 检查用户配置</span></div>
+                    <div class="step-row" data-step="3"><span class="step-icon">⏳</span><span class="step-text">3. 检查防火墙状态</span></div>
+                    <div class="step-row" data-step="4"><span class="step-icon">⏳</span><span class="step-text">4. 检查 Java 环境</span></div>
+                    <div class="step-row" data-step="5"><span class="step-icon">⏳</span><span class="step-text">5. 检查系统依赖</span></div>
+                    <div class="step-row" data-step="6"><span class="step-icon">⏳</span><span class="step-text">6. 检查系统内存</span></div>
+                    <div class="step-row" data-step="7"><span class="step-icon">⏳</span><span class="step-text">7. 检查端口占用</span></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRetry2">重试</button>
+                    <button class="btn btn-primary" id="btnNext2" disabled>下一步</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase3">
+                <div class="phase-header">
+                    <h2>📦 安装部署</h2>
+                    <span class="status-badge" id="badge3"></span>
+                </div>
+                <div class="steps-list">
+                    <div class="step-row" data-step="8"><span class="step-icon">⏳</span><span class="step-text">8. 处理安装包</span></div>
+                    <div class="step-row" data-step="9"><span class="step-icon">⏳</span><span class="step-text">9. 配置集群模式</span></div>
+                    <div class="step-row" data-step="10"><span class="step-icon">⏳</span><span class="step-text">10. 配置检查点存储</span></div>
+                    <div class="step-row" data-step="11"><span class="step-icon">⏳</span><span class="step-text">11. 配置 JVM 参数</span></div>
+                    <div class="step-row" data-step="12"><span class="step-icon">⏳</span><span class="step-text">12. 安装插件</span></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRetry3">重试</button>
+                    <button class="btn btn-primary" id="btnNext3" disabled>下一步</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase4">
+                <div class="phase-header">
+                    <h2>🚀 分发启动</h2>
+                    <span class="status-badge" id="badge4"></span>
+                </div>
+                <div class="steps-list">
+                    <div class="step-row" data-step="13"><span class="step-icon">⏳</span><span class="step-text">13. 分发安装文件</span></div>
+                    <div class="step-row" data-step="14"><span class="step-icon">⏳</span><span class="step-text">14. 配置环境变量</span></div>
+                    <div class="step-row" data-step="15"><span class="step-icon">⏳</span><span class="step-text">15. 配置开机自启</span></div>
+                    <div class="step-row" data-step="16"><span class="step-icon">⏳</span><span class="step-text">16. 启动集群服务</span></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRetry4">重试</button>
+                    <button class="btn btn-primary" id="btnNext4" disabled>完成</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase5">
+                <div class="phase-header"><h2>✅ 安装完成</h2></div>
+                <div class="result-content">
+                    <div class="result-icon">🎉</div>
+                    <h3>SeaTunnel 集群部署成功！</h3>
+                    <div class="result-details" id="resultDetails"></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRestart">重新安装</button>
+                </div>
+            </section>
+        </main>
+
+        <aside class="log-panel">
+            <div class="log-toolbar">
+                <span class="log-title">📋 安装日志</span>
+                <button class="btn-refresh" id="btnRefreshLog">🔄 刷新</button>
+            </div>
+            <pre class="log-content" id="logContent">点击 "刷新" 按钮查看日志...</pre>
+        </aside>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
