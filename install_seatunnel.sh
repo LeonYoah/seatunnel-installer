@@ -1829,7 +1829,7 @@ check_dependencies() {
 # 检查URL是否可访问
 check_url() {
     local url=$1
-    local timeout=5
+    local timeout=20
     
     if ! command -v curl >/dev/null 2>&1; then
         log_error "未找到curl命令,请先安装curl"
@@ -2240,7 +2240,7 @@ download_artifact() {
         if curl -L \
             --fail \
             --progress-bar \
-            --connect-timeout 10 \
+            --connect-timeout 20 \
             --retry 3 \
             --retry-delay 2 \
             --retry-max-time 60 \
@@ -2764,7 +2764,7 @@ function show_completion_info(){
             echo -e "重启服务:    ${GREEN}sudo systemctl restart seatunnel-master${NC}"
             echo -e "查看状态:    ${GREEN}sudo systemctl status seatunnel-master${NC}"
             echo -e "查看启动日志:    ${GREEN}sudo journalctl -u seatunnel-master -n 100 --no-pager${NC}"
-            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-master.out${NC}"
+            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-master.log${NC}"
             echo -e "----------------------------------------"
             echo -e "\nWorker服务命令:"
             echo -e "启动服务:    ${GREEN}sudo systemctl start seatunnel-worker${NC}"
@@ -2772,7 +2772,7 @@ function show_completion_info(){
             echo -e "重启服务:    ${GREEN}sudo systemctl restart seatunnel-worker${NC}"
             echo -e "查看状态:    ${GREEN}sudo systemctl status seatunnel-worker${NC}"
             echo -e "查看启动日志:    ${GREEN}sudo journalctl -u seatunnel-worker -n 100 --no-pager${NC}"
-            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-worker.out${NC}"
+            echo -e "查看运行日志:    ${GREEN}tail -n 100 $SEATUNNEL_HOME/logs/seatunnel-engine-worker.log${NC}"
         fi
     else
         echo -e "启动集群:    ${GREEN}$SEATUNNEL_HOME/bin/seatunnel-start-cluster.sh start${NC}"
@@ -3020,7 +3020,7 @@ execute_remote_script() {
     local node=$1
     local script=$2
     shift 2  # 移除前两个参数，剩余的都是要传递给脚本的参数
-    local TIMEOUT=10
+    local TIMEOUT=20
     
     # 创建临时脚本文件，添加参数处理
     local temp_script="/tmp/remote_script_$RANDOM.sh"
