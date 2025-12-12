@@ -29,6 +29,9 @@ jobs:
             --exclude='.web*' \
             --exclude='*.log' \
             --exclude='temp.*' \
+            --exclude='seatunnel-install-log-*' \
+            --exclude='.httpd.conf' \
+            --exclude='.*.pid' \
             .
           
       - name: Create Release
