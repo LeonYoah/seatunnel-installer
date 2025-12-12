@@ -20,13 +20,16 @@ jobs:
       
       - name: Create Release Package
         run: |
-          mkdir dist
-          cp install_seatunnel.sh dist/
-          cp uninstall_seatunnel.sh dist/
-          cp config.properties dist/
-          cd dist
-          tar -czf "../seatunnel-installer-${{ env.VERSION }}.tar.gz" *
-          cd ..
+          tar -czf "seatunnel-installer-${{ env.VERSION }}.tar.gz" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='*.tar.gz' \
+            --exclude='.install*' \
+            --exclude='.step*' \
+            --exclude='.web*' \
+            --exclude='*.log' \
+            --exclude='temp.*' \
+            .
           
       - name: Create Release
         id: create_release

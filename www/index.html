@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeaTunnel 安装向导</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="layout">
+        <main class="main-panel">
+            <header class="app-header">
+                <div class="logo-wrap">
+                    <img src="image/logo.png" alt="SeaTunnel" class="app-logo">
+                    <div class="app-title">
+                        <h1>SeaTunnel 安装向导</h1>
+                        <p class="app-subtitle">可视化一键安装与部署</p>
+                    </div>
+                </div>
+            </header>
+            <nav class="steps-nav">
+                <div class="step-nav active" data-phase="1">
+                    <span class="step-num">1</span>
+                    <span class="step-title">配置</span>
+                    <span class="step-status" id="navStatus1"></span>
+                </div>
+                <div class="step-nav" data-phase="2">
+                    <span class="step-num">2</span>
+                    <span class="step-title">环境检查</span>
+                    <span class="step-status" id="navStatus2"></span>
+                </div>
+                <div class="step-nav" data-phase="3">
+                    <span class="step-num">3</span>
+                    <span class="step-title">安装部署</span>
+                    <span class="step-status" id="navStatus3"></span>
+                </div>
+                <div class="step-nav" data-phase="4">
+                    <span class="step-num">4</span>
+                    <span class="step-title">分发启动</span>
+                    <span class="step-status" id="navStatus4"></span>
+                </div>
+                <div class="step-nav" data-phase="5">
+                    <span class="step-num">5</span>
+                    <span class="step-title">完成</span>
+                    <span class="step-status" id="navStatus5"></span>
+                </div>
+            </nav>
+
+            <section class="phase-panel" id="phase1">
+                <div class="phase-header"><h2>安装配置</h2></div>
+                <form id="configForm" class="config-form">
+                    <div class="form-section-grid">
+                        <div class="form-card">
+                            <h3>基础配置</h3>
+                            <div class="form-item">
+                                <label>SeaTunnel 版本</label>
+                                <div class="input-with-select">
+                                    <input type="text" name="SEATUNNEL_VERSION" id="versionInput" value="2.3.12" placeholder="输入或选择版本">
+                                    <select id="versionSelect">
+                                        <option value="">选择</option>
+                                        <option value="2.3.12">2.3.12</option>
+                                        <option value="2.3.11">2.3.11</option>
+                                        <option value="2.3.10">2.3.10</option>
+                                        <option value="2.3.9">2.3.9</option>
+                                        <option value="2.3.8">2.3.8</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-item">
+                                    <label>安装模式</label>
+                                    <select name="INSTALL_MODE" id="installMode">
+                                        <option value="online">在线安装</option>
+                                        <option value="offline">离线安装</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-item">
+                                <label>安装目录</label>
+                                <input type="text" name="BASE_DIR" value="/home/seatunnel/seatunnel-package">
+                                <p class="form-help">将用于存放 SeaTunnel 安装文件、日志等</p>
+                            </div>
+                            <div class="form-item hidden" id="offlinePackageRow">
+                                <label>离线安装包路径 <span class="required">*</span></label>
+                                <input type="text" name="PACKAGE_PATH" placeholder="/path/to/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz">
+                                <p class="form-help">当安装模式为离线时必须填写，可使用绝对路径或相对安装脚本的路径</p>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-item">
+                                    <label>安装用户</label>
+                                    <input type="text" name="INSTALL_USER" value="root">
+                                </div>
+                                <div class="form-item">
+                                    <label>安装用户组</label>
+                                    <input type="text" name="INSTALL_GROUP" value="root">
+                                </div>
+                                <div class="form-item">
+                                    <label>SSH 端口</label>
+                                    <input type="number" name="SSH_PORT" value="22" min="1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-card">
+                            <h3>部署与端口</h3>
+                            <div class="form-item">
+                                <label>部署模式</label>
+                                <select name="DEPLOY_MODE" id="deployMode">
+                                    <option value="separated">分离模式 (Master/Worker)</option>
+                                    <option value="hybrid">混合模式 (所有节点对等)</option>
+                                </select>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-item hidden" id="hybridPortRow">
+                                    <label>集群端口</label>
+                                    <input type="number" name="HYBRID_PORT" value="5801" min="1">
+                                </div>
+                                <div class="form-item" id="masterPortRow">
+                                    <label>Master 端口</label>
+                                    <input type="number" name="MASTER_PORT" value="5801" min="1">
+                                </div>
+                                <div class="form-item" id="workerPortRow">
+                                    <label>Worker 端口</label>
+                                    <input type="number" name="WORKER_PORT" value="5802" min="1">
+                                </div>
+                                <div class="form-item">
+                                    <label>Master HTTP 端口</label>
+                                    <input type="number" name="MASTER_HTTP_PORT" value="8080" min="1">
+                                </div>
+                            </div>
+                            <div class="form-card nested" id="separatedConfig">
+                                <h4>节点配置 (分离模式)</h4>
+                                <div class="form-item">
+                                    <label>Master IP</label>
+                                    <input type="text" name="MASTER_IP" placeholder="192.168.1.100">
+                                </div>
+                                <div class="form-item">
+                                    <label>Worker IPs (逗号分隔)</label>
+                                    <input type="text" name="WORKER_IPS" placeholder="192.168.1.101,192.168.1.102">
+                                </div>
+                            </div>
+                            <div class="form-card nested hidden" id="hybridConfig">
+                                <h4>节点配置 (混合模式)</h4>
+                                <div class="form-item">
+                                    <label>集群节点 (逗号分隔)</label>
+                                    <input type="text" name="CLUSTER_NODES" placeholder="192.168.1.100,192.168.1.101">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section-grid">
+                        <div class="form-card">
+                            <h3>防火墙与安全</h3>
+                            <div class="form-grid">
+                                <div class="form-item">
+                                    <label>检查防火墙</label>
+                                    <select name="CHECK_FIREWALL" id="checkFirewall">
+                                        <option value="true">是</option>
+                                        <option value="false">否</option>
+                                    </select>
+                                </div>
+                                <div class="form-item" id="firewallActionRow">
+                                    <label>防火墙检查失败时</label>
+                                    <select name="FIREWALL_CHECK_ACTION">
+                                        <option value="error">终止安装 (推荐生产)</option>
+                                        <option value="warn">仅告警 (推荐测试)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-card">
+                            <h3>JVM 配置</h3>
+                            <div class="form-grid">
+                                <div class="form-item" id="hybridHeapRow">
+                                    <label>混合模式堆内存 (GB)</label>
+                                    <input type="number" name="HYBRID_HEAP_SIZE" value="3" min="1">
+                                </div>
+                                <div class="form-item" id="masterHeapRow">
+                                    <label>Master 堆内存 (GB)</label>
+                                    <input type="number" name="MASTER_HEAP_SIZE" value="1" min="1">
+                                </div>
+                                <div class="form-item" id="workerHeapRow">
+                                    <label>Worker 堆内存 (GB)</label>
+                                    <input type="number" name="WORKER_HEAP_SIZE" value="3" min="1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section-grid">
+                        <div class="form-card">
+                            <h3>检查点存储</h3>
+                            <div class="form-item">
+                                <label>存储类型</label>
+                                <select name="CHECKPOINT_STORAGE_TYPE" id="checkpointType">
+                                    <option value="LOCAL_FILE">LOCAL_FILE (本地文件)</option>
+                                    <option value="HDFS">HDFS</option>
+                                    <option value="OSS">OSS</option>
+                                    <option value="S3">S3</option>
+                                </select>
+                            </div>
+                            <div class="form-item" id="checkpointNamespaceRow">
+                                <label>检查点路径 / 命名空间</label>
+                                <input type="text" name="CHECKPOINT_NAMESPACE" value="/tmp/seatunnel/checkpoint/">
+                            </div>
+                            <div class="form-card nested hidden" id="hdfsConfig">
+                                <h4>HDFS 配置</h4>
+                                <div class="form-grid">
+                                    <div class="form-item">
+                                        <label>NameNode Host</label>
+                                        <input type="text" name="HDFS_NAMENODE_HOST" value="127.0.0.1">
+                                    </div>
+                                    <div class="form-item">
+                                        <label>NameNode Port</label>
+                                        <input type="number" name="HDFS_NAMENODE_PORT" value="8020" min="1">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-card nested hidden" id="objectStorageConfig">
+                                <h4>OSS / S3 配置</h4>
+                                <div class="form-item">
+                                    <label>Endpoint</label>
+                                    <input type="text" name="STORAGE_ENDPOINT" value="http://127.0.0.1:9010">
+                                </div>
+                                <div class="form-grid">
+                                    <div class="form-item">
+                                        <label>Access Key</label>
+                                        <input type="text" name="STORAGE_ACCESS_KEY" value="admin">
+                                    </div>
+                                    <div class="form-item">
+                                        <label>Secret Key</label>
+                                        <input type="password" name="STORAGE_SECRET_KEY" value="your_secret_key">
+                                    </div>
+                                </div>
+                                <div class="form-item">
+                                    <label>Bucket</label>
+                                    <input type="text" name="STORAGE_BUCKET" value="your_bucket">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-card">
+                            <h3>下载与插件</h3>
+                            <div class="form-item">
+                                <label>安装包下载源</label>
+                                <select name="PACKAGE_REPO" id="packageRepo">
+                                    <option value="apache">Apache 官方源</option>
+                                    <option value="aliyun">阿里云镜像</option>
+                                    <option value="huaweicloud">华为云镜像</option>
+                                    <option value="custom">自定义地址</option>
+                                </select>
+                            </div>
+                            <div class="form-item hidden" id="customPackageRow">
+                                <label>自定义安装包地址</label>
+                                <input type="text" name="CUSTOM_PACKAGE_URL" placeholder="https://example.com/apache-seatunnel-${version}-bin.tar.gz">
+                            </div>
+                            <div class="form-item">
+                                <label>插件下载源</label>
+                                <select name="PLUGIN_REPO" id="pluginRepo">
+                                    <option value="apache">Apache 官方源</option>
+                                    <option value="aliyun">阿里云 Maven 仓库</option>
+                                    <option value="huaweicloud">华为云 Maven 仓库</option>
+                                    <option value="custom">自定义 Maven 仓库</option>
+                                </select>
+                            </div>
+                            <div class="form-item hidden" id="customPluginRow">
+                                <label>自定义插件仓库地址</label>
+                                <input type="text" name="CUSTOM_PLUGIN_URL" placeholder="https://your-maven-repo.com/repository/maven-public">
+                            </div>
+                            <div class="form-item">
+                                <label>安装连接器</label>
+                                <select name="INSTALL_CONNECTORS" id="installConnectors">
+                                    <option value="true">是</option>
+                                    <option value="false">否</option>
+                                </select>
+                            </div>
+                            <div class="form-item" id="connectorsRow">
+                                <label>启用的连接器 (逗号分隔)</label>
+                                <input type="text" name="CONNECTORS" placeholder="jdbc,hive,kafka,file-local">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section-grid">
+                        <div class="form-card">
+                            <h3>系统服务</h3>
+                            <div class="form-item">
+                                <label>配置 systemd 自启动</label>
+                                <select name="ENABLE_AUTO_START">
+                                    <option value="true">是</option>
+                                    <option value="false">否</option>
+                                </select>
+                                <p class="form-help">建议生产环境开启，安装完成后会自动创建 systemd 服务并开机自启</p>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div class="phase-footer">
+                    <button class="btn btn-primary" id="btnSaveStart">保存配置并开始安装</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase2">
+                <div class="phase-header">
+                    <h2>环境检查</h2>
+                    <span class="status-badge" id="badge2"></span>
+                </div>
+                <div class="steps-list">
+                    <div class="step-row" data-step="1"><span class="step-icon">○</span><span class="step-text">1. 读取配置文件</span></div>
+                    <div class="step-row" data-step="2"><span class="step-icon">○</span><span class="step-text">2. 检查用户配置</span></div>
+                    <div class="step-row" data-step="3"><span class="step-icon">○</span><span class="step-text">3. 检查防火墙状态</span></div>
+                    <div class="step-row" data-step="4"><span class="step-icon">○</span><span class="step-text">4. 检查 Java 环境</span></div>
+                    <div class="step-row" data-step="5"><span class="step-icon">○</span><span class="step-text">5. 检查系统依赖</span></div>
+                    <div class="step-row" data-step="6"><span class="step-icon">○</span><span class="step-text">6. 检查系统内存</span></div>
+                    <div class="step-row" data-step="7"><span class="step-icon">○</span><span class="step-text">7. 检查端口占用</span></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRetry2">重试</button>
+                    <button class="btn btn-primary" id="btnNext2" disabled>下一步</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase3">
+                <div class="phase-header">
+                    <h2>安装部署</h2>
+                    <span class="status-badge" id="badge3"></span>
+                </div>
+                <div class="steps-list">
+                    <div class="step-row" data-step="8"><span class="step-icon">○</span><span class="step-text">8. 处理安装包</span></div>
+                    <div class="step-row" data-step="9"><span class="step-icon">○</span><span class="step-text">9. 配置集群模式</span></div>
+                    <div class="step-row" data-step="10"><span class="step-icon">○</span><span class="step-text">10. 配置检查点存储</span></div>
+                    <div class="step-row" data-step="11"><span class="step-icon">○</span><span class="step-text">11. 安装插件和依赖</span></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRetry3">重试</button>
+                    <button class="btn btn-primary" id="btnNext3" disabled>下一步</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase4">
+                <div class="phase-header">
+                    <h2>分发启动</h2>
+                    <span class="status-badge" id="badge4"></span>
+                </div>
+                <div class="steps-list">
+                    <div class="step-row" data-step="12"><span class="step-icon">○</span><span class="step-text">12. 分发到其他节点</span></div>
+                    <div class="step-row" data-step="13"><span class="step-icon">○</span><span class="step-text">13. 配置环境变量</span></div>
+                    <div class="step-row" data-step="14"><span class="step-icon">○</span><span class="step-text">14. 配置开机自启动</span></div>
+                    <div class="step-row" data-step="15"><span class="step-icon">○</span><span class="step-text">15. 启动集群</span></div>
+                    <div class="step-row" data-step="16"><span class="step-icon">○</span><span class="step-text">16. 检查服务状态</span></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRetry4">重试</button>
+                    <button class="btn btn-primary" id="btnNext4" disabled>完成</button>
+                </div>
+            </section>
+
+            <section class="phase-panel hidden" id="phase5">
+                <div class="phase-header"><h2>安装完成</h2></div>
+                <div class="result-content">
+                    <div class="result-icon">✓</div>
+                    <h3>SeaTunnel 集群部署成功！</h3>
+                    <div class="result-details" id="resultDetails"></div>
+                </div>
+                <div class="phase-footer">
+                    <button class="btn btn-outline" id="btnRestart">重新安装</button>
+                </div>
+            </section>
+        </main>
+
+        <aside class="log-panel">
+            <div class="log-toolbar">
+                <span class="log-title">📋 安装日志</span>
+                <button class="btn-refresh" id="btnRefreshLog">🔄 刷新</button>
+            </div>
+            <pre class="log-content" id="logContent">点击 "刷新" 按钮查看日志...</pre>
+        </aside>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
