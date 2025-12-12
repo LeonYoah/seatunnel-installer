@@ -179,11 +179,11 @@
                                 </div>
                                 <div class="form-item" id="masterHeapRow">
                                     <label>Master 堆内存 (GB)</label>
-                                    <input type="number" name="MASTER_HEAP_SIZE" value="1" min="1">
+                                    <input type="number" name="MASTER_HEAP_SIZE" value="2" min="1">
                                 </div>
                                 <div class="form-item" id="workerHeapRow">
                                     <label>Worker 堆内存 (GB)</label>
-                                    <input type="number" name="WORKER_HEAP_SIZE" value="3" min="1">
+                                    <input type="number" name="WORKER_HEAP_SIZE" value="2" min="1">
                                 </div>
                             </div>
                         </div>
@@ -246,9 +246,9 @@
                             <div class="form-item">
                                 <label>安装包下载源</label>
                                 <select name="PACKAGE_REPO" id="packageRepo">
-                                    <option value="apache">Apache 官方源</option>
-                                    <option value="aliyun">阿里云镜像</option>
+                                    <option value="aliyun" selected>阿里云镜像</option>
                                     <option value="huaweicloud">华为云镜像</option>
+                                    <option value="apache">Apache 官方源</option>
                                     <option value="custom">自定义地址</option>
                                 </select>
                             </div>
@@ -259,9 +259,9 @@
                             <div class="form-item">
                                 <label>插件下载源</label>
                                 <select name="PLUGIN_REPO" id="pluginRepo">
-                                    <option value="apache">Apache 官方源</option>
-                                    <option value="aliyun">阿里云 Maven 仓库</option>
+                                    <option value="aliyun" selected>阿里云 Maven 仓库</option>
                                     <option value="huaweicloud">华为云 Maven 仓库</option>
+                                    <option value="apache">Apache 官方源</option>
                                     <option value="custom">自定义 Maven 仓库</option>
                                 </select>
                             </div>
@@ -278,8 +278,7 @@
                             </div>
                             <div class="form-item" id="connectorsRow">
                                 <label>启用的连接器 (逗号分隔)</label>
-                                <input type="text" name="CONNECTORS" placeholder="jdbc,hive,kafka,file-local">
-                            </div>
+                                <input type="text" name="CONNECTORS" value="jdbc,hive,kafka,file-local" placeholder="jdbc,hive,kafka,file-local">                            </div>
                         </div>
                     </div>
 

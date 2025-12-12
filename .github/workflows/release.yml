@@ -20,8 +20,8 @@ jobs:
       
       - name: Create Release Package
         run: |
-          tar -czf "seatunnel-installer-${{ env.VERSION }}.tar.gz" \
-            --exclude='.git' \
+          mkdir -p dist
+          rsync -av --exclude='.git' \
             --exclude='.github' \
             --exclude='*.tar.gz' \
             --exclude='.install*' \
@@ -32,7 +32,9 @@ jobs:
             --exclude='seatunnel-install-log-*' \
             --exclude='.httpd.conf' \
             --exclude='.*.pid' \
-            .
+            --exclude='dist' \
+            . dist/
+          cd dist && tar -czf "../seatunnel-installer-${{ env.VERSION }}.tar.gz" *
           
       - name: Create Release
         id: create_release

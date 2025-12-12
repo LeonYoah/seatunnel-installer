@@ -328,10 +328,11 @@ case "$ACTION" in
             echo '{"status":"error","message":"没有数据"}'
             exit 0
         fi
-        # 简单解析 JSON 并更新配置
-        echo "$POST_DATA" | tr ',' '\n' | tr -d '{}' | while read -r pair; do
-            key=$(echo "$pair" | cut -d':' -f1 | tr -d '"[:space:]')
-            value=$(echo "$pair" | cut -d':' -f2- | tr -d '"' | sed 's/^[[:space:]]*//')
+        # 使用 sed 正则解析 JSON 键值对，正确处理值中的逗号
+        # 匹配 "key":"value" 或 "key":"value,with,commas"
+        echo "$POST_DATA" | sed 's/^{//;s/}$//' | grep -oE '"[^"]+":"[^"]*"' | while read -r pair; do
+            key=$(echo "$pair" | sed 's/^"\([^"]*\)".*/\1/')
+            value=$(echo "$pair" | sed 's/^"[^"]*":"\(.*\)"$/\1/')
             [ -z "$key" ] && continue
             if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
                 sed -i "s|^${key}=.*|${key}=${value}|" "$CONFIG_FILE"
