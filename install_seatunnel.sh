@@ -1436,6 +1436,102 @@ configure_master_http_port() {
     fi
 }
 
+# 获取统一的 JAVA_HOME 路径（需要在 read_config 之后调用）
+get_unified_java_home() {
+    echo "${BASE_DIR}/java"
+}
+
+# 设置统一的 JAVA_HOME 软链接
+# 确保所有节点使用相同的 JAVA_HOME 路径，便于生成统一的 systemd 服务文件
+setup_java_symlink() {
+    local node=$1
+    local is_remote=$2
+    local unified_java_home
+    unified_java_home=$(get_unified_java_home)
+    
+    log_info "设置节点 $node 的统一 JAVA_HOME: $unified_java_home"
+    
+    if [ "$is_remote" = "false" ]; then
+        # 本地节点
+        # 如果统一路径已存在且是目录（不是软链接），说明是之前安装的 Java，跳过
+        if [ -d "$unified_java_home" ] && [ ! -L "$unified_java_home" ]; then
+            log_info "本地节点 JAVA_HOME 已存在: $unified_java_home"
+            return 0
+        fi
+        
+        # 如果统一路径已存在且是软链接，先删除
+        if [ -L "$unified_java_home" ]; then
+            rm -f "$unified_java_home"
+        fi
+        
+        # 获取实际的 JAVA_HOME
+        local real_java_home
+        if [ -n "$JAVA_HOME" ] && [ -d "$JAVA_HOME" ]; then
+            real_java_home="$JAVA_HOME"
+        else
+            # 从 java 命令路径推断 JAVA_HOME
+            local java_bin
+            java_bin=$(which java 2>/dev/null)
+            if [ -n "$java_bin" ]; then
+                # 解析软链接获取真实路径
+                java_bin=$(readlink -f "$java_bin")
+                # java 在 bin 目录下，JAVA_HOME 是其父目录的父目录
+                real_java_home=$(dirname "$(dirname "$java_bin")")
+            fi
+        fi
+        
+        if [ -n "$real_java_home" ] && [ -d "$real_java_home" ]; then
+            # 创建软链接
+            mkdir -p "$(dirname "$unified_java_home")"
+            ln -sf "$real_java_home" "$unified_java_home"
+            log_info "本地节点创建 JAVA_HOME 软链接: $unified_java_home -> $real_java_home"
+        else
+            log_warning "本地节点无法确定 JAVA_HOME，跳过软链接创建"
+        fi
+    else
+        # 远程节点
+        # 检查统一路径是否已存在
+        local path_exists
+        path_exists=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "[ -e '$unified_java_home' ] && echo 'yes' || echo 'no'" 2>/dev/null)
+        
+        if [ "$path_exists" = "yes" ]; then
+            local is_link
+            is_link=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "[ -L '$unified_java_home' ] && echo 'yes' || echo 'no'" 2>/dev/null)
+            if [ "$is_link" = "no" ]; then
+                log_info "远程节点 $node JAVA_HOME 已存在: $unified_java_home"
+                return 0
+            fi
+            # 是软链接，先删除
+            ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "rm -f '$unified_java_home'" 2>/dev/null
+        fi
+        
+        # 获取远程节点的实际 JAVA_HOME
+        local real_java_home
+        real_java_home=$(ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" '
+            if [ -n "$JAVA_HOME" ] && [ -d "$JAVA_HOME" ]; then
+                echo "$JAVA_HOME"
+            else
+                java_bin=$(which java 2>/dev/null)
+                if [ -n "$java_bin" ]; then
+                    java_bin=$(readlink -f "$java_bin")
+                    dirname "$(dirname "$java_bin")"
+                fi
+            fi
+        ' 2>/dev/null)
+        
+        if [ -n "$real_java_home" ]; then
+            # 创建软链接
+            ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "
+                mkdir -p '$(dirname "$unified_java_home")'
+                ln -sf '$real_java_home' '$unified_java_home'
+            " 2>/dev/null
+            log_info "远程节点 $node 创建 JAVA_HOME 软链接: $unified_java_home -> $real_java_home"
+        else
+            log_warning "远程节点 $node 无法确定 JAVA_HOME，跳过软链接创建"
+        fi
+    fi
+}
+
 # 检查Java环境
 check_java() {
     local node=$1
@@ -1492,6 +1588,9 @@ check_java() {
         else
             log_error "节点 $node 不支持的Java版本: $java_version，SeaTunnel需要Java 8或Java 11"
         fi
+        
+        # 设置统一的 JAVA_HOME 软链接
+        setup_java_symlink "$node" "false"
     else
         # 远程节点检查
         # 添加超时控制
@@ -1537,6 +1636,9 @@ check_java() {
         else
             log_error "节点 $node 不支持的Java版本: $java_version，SeaTunnel需要Java 8或Java 11"
         fi
+        
+        # 设置统一的 JAVA_HOME 软链接
+        setup_java_symlink "$node" "true"
     fi
 }
 
@@ -1626,28 +1728,40 @@ install_java() {
         fi
     fi
     
-    # 创建Java安装目录
+    # 创建Java安装目录并解压
+    # 解压后创建软链接，使 ${BASE_DIR}/java 直接指向实际的 JDK 目录
+    local java_extract_dir="${BASE_DIR}/java_install"
+    local java_real_dir="${java_extract_dir}/${java_dir}"
+    
     if [ "$is_remote" = true ]; then
-        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "mkdir -p $java_home"
-        scp -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$DOWNLOAD_DIR/$java_package" "${INSTALL_USER}@${node}:$java_home/"
-        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "cd $java_home && tar -zxf $java_package && rm -f $java_package"
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "mkdir -p $java_extract_dir"
+        scp -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$DOWNLOAD_DIR/$java_package" "${INSTALL_USER}@${node}:$java_extract_dir/"
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "
+            cd $java_extract_dir && tar -zxf $java_package && rm -f $java_package
+            # 创建软链接，使 $java_home 指向实际的 JDK 目录
+            rm -f '$java_home' 2>/dev/null || true
+            ln -sf '$java_real_dir' '$java_home'
+        "
     else
-        mkdir -p "$java_home"
-        tar -zxf "$java_package" -C "$java_home"
+        mkdir -p "$java_extract_dir"
+        tar -zxf "$java_package" -C "$java_extract_dir"
+        # 创建软链接，使 ${BASE_DIR}/java 指向实际的 JDK 目录
+        rm -f "$java_home" 2>/dev/null || true
+        ln -sf "$java_real_dir" "$java_home"
     fi
     
     # 设置权限
     if [ "$is_remote" = true ]; then
-        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "chown -R $INSTALL_USER:$INSTALL_GROUP $java_home && chmod -R 755 $java_home"
+        ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "${INSTALL_USER}@${node}" "chown -R $INSTALL_USER:$INSTALL_GROUP $java_extract_dir && chmod -R 755 $java_extract_dir"
     else
-        chown -R "$INSTALL_USER:$INSTALL_GROUP" "$java_home"
-        chmod -R 755 "$java_home"
+        chown -R "$INSTALL_USER:$INSTALL_GROUP" "$java_extract_dir"
+        chmod -R 755 "$java_extract_dir"
     fi
     
-    # 配置环境变量
+    # 配置环境变量（使用统一的 java_home 路径）
     local bashrc_content="
 # JAVA_HOME BEGIN
-export JAVA_HOME=$java_home/$java_dir
+export JAVA_HOME=$java_home
 export PATH=\$JAVA_HOME/bin:\$PATH
 # JAVA_HOME END"
     
@@ -1671,8 +1785,8 @@ export PATH=\$JAVA_HOME/bin:\$PATH
         sed -i '/# JAVA_HOME BEGIN/,/# JAVA_HOME END/d' "$user_home/.bashrc"
         echo "$bashrc_content" >> "$user_home/.bashrc"
         
-        # 使环境变量生效
-        export JAVA_HOME="$java_home/$java_dir"
+        # 使环境变量生效（使用统一的 java_home 路径）
+        export JAVA_HOME="$java_home"
         export PATH="$JAVA_HOME/bin:$PATH"
     fi
     
@@ -2160,7 +2274,8 @@ download_artifact() {
 create_service_file() {
     local service_name=$1
     local role=$2
-    local java_home=${3:-"$JAVA_HOME"}
+    # 使用统一的 JAVA_HOME 路径，确保所有节点一致
+    local java_home=${3:-"$(get_unified_java_home)"}
     local seatunnel_home=${4:-"$SEATUNNEL_HOME"}
     local install_user=${5:-"$INSTALL_USER"}
     local install_group=${6:-"$INSTALL_GROUP"}
@@ -3312,7 +3427,6 @@ execute_step() {
             ;;
         check_dependencies)
             check_dependencies || result=$?
-            ensure_yq || true
             handle_selinux || true
             ;;
         check_memory)

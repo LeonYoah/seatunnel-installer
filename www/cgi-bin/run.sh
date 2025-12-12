@@ -164,6 +164,7 @@ case "$ACTION" in
             case "$(cat "$STATUS_FILE")" in
                 completed) status="completed"; progress=100 ;;
                 failed*) status="failed" ;;
+                paused) status="paused" ;;
                 running) [ "$status" != "running" ] && status="pending" ;;
             esac
         fi
@@ -250,6 +251,29 @@ case "$ACTION" in
         fi
         echo "stopped" > "$STATUS_FILE"
         echo '{"status":"ok","message":"已停止"}'
+        ;;
+    
+    # ========================================
+    # 暂停执行 (标记当前运行中的步骤为 paused)
+    # ========================================
+    pause)
+        if [ -f "$PID_FILE" ]; then
+            pid=$(cat "$PID_FILE")
+            # 终止当前执行进程
+            kill -TERM "$pid" 2>/dev/null
+            sleep 1
+            kill -KILL "$pid" 2>/dev/null || true
+            rm -f "$PID_FILE"
+            
+            # 将所有 running 状态的步骤改为 paused
+            if [ -f "$STEP_STATUS_FILE" ]; then
+                sed -i 's/:running$/:paused/' "$STEP_STATUS_FILE"
+            fi
+            echo "paused" > "$STATUS_FILE"
+            echo '{"status":"ok","message":"已暂停"}'
+        else
+            echo '{"status":"ok","message":"没有正在执行的任务"}'
+        fi
         ;;
     
     # ========================================

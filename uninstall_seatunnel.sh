@@ -26,6 +26,112 @@ log_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $(date '+%Y-%m-%d %H:%M:%S') $1"
 }
 
+# 受保护的系统目录列表
+PROTECTED_DIRS=("/" "/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lib64" "/media" "/mnt" "/opt" "/proc" "/root" "/run" "/sbin" "/srv" "/sys" "/tmp" "/usr" "/var")
+
+# 安全检查：检查路径是否可以安全删除
+# 返回 0 表示安全，1 表示不安全
+is_safe_to_delete() {
+    local path="$1"
+    
+    # 检查路径是否为空
+    if [ -z "$path" ]; then
+        log_warning "安全检查失败：路径为空"
+        return 1
+    fi
+    
+    # 检查路径是否只是 /
+    if [ "$path" = "/" ]; then
+        log_warning "安全检查失败：不能删除根目录"
+        return 1
+    fi
+    
+    # 去除末尾的斜杠
+    path="${path%/}"
+    
+    # 检查是否是受保护的系统目录
+    for protected in "${PROTECTED_DIRS[@]}"; do
+        if [ "$path" = "$protected" ]; then
+            log_warning "安全检查失败：$path 是受保护的系统目录"
+            return 1
+        fi
+    done
+    
+    # 检查路径是否以受保护目录开头（但允许 /home/user/xxx 这样的路径）
+    # 只阻止直接在系统目录下的一级子目录，如 /usr/xxx
+    for protected in "/bin" "/boot" "/dev" "/etc" "/lib" "/lib64" "/proc" "/run" "/sbin" "/sys"; do
+        if [[ "$path" == "$protected/"* ]]; then
+            log_warning "安全检查失败：$path 位于受保护的系统目录 $protected 内"
+            return 1
+        fi
+    done
+    
+    return 0
+}
+
+# 安全删除文件或目录（本地）
+safe_rm() {
+    local path="$1"
+    local force_dir="${2:-false}"  # 是否强制删除目录
+    
+    if ! is_safe_to_delete "$path"; then
+        log_error "拒绝删除不安全的路径: $path"
+        return 1
+    fi
+    
+    if [ -L "$path" ]; then
+        log_info "删除软链接: $path"
+        sudo rm -f "$path"
+    elif [ -d "$path" ] && [ "$force_dir" = "true" ]; then
+        log_info "删除目录: $path"
+        sudo rm -rf "$path"
+    elif [ -f "$path" ]; then
+        log_info "删除文件: $path"
+        sudo rm -f "$path"
+    fi
+}
+
+# 生成远程安全删除脚本
+# 返回可以在远程执行的安全删除脚本片段
+get_remote_safe_rm_script() {
+    cat << 'REMOTE_SCRIPT'
+# 受保护的系统目录
+PROTECTED_DIRS="/ /bin /boot /dev /etc /home /lib /lib64 /media /mnt /opt /proc /root /run /sbin /srv /sys /tmp /usr /var"
+
+is_safe_to_delete() {
+    local path="$1"
+    [ -z "$path" ] && return 1
+    [ "$path" = "/" ] && return 1
+    path="${path%/}"
+    for protected in $PROTECTED_DIRS; do
+        [ "$path" = "$protected" ] && return 1
+    done
+    for protected in /bin /boot /dev /etc /lib /lib64 /proc /run /sbin /sys; do
+        case "$path" in
+            "$protected/"*) return 1 ;;
+        esac
+    done
+    return 0
+}
+
+safe_rm() {
+    local path="$1"
+    local force_dir="${2:-false}"
+    is_safe_to_delete "$path" || { echo "拒绝删除不安全的路径: $path"; return 1; }
+    if [ -L "$path" ]; then
+        echo "删除软链接: $path"
+        sudo rm -f "$path"
+    elif [ -d "$path" ] && [ "$force_dir" = "true" ]; then
+        echo "删除目录: $path"
+        sudo rm -rf "$path"
+    elif [ -f "$path" ]; then
+        echo "删除文件: $path"
+        sudo rm -f "$path"
+    fi
+}
+REMOTE_SCRIPT
+}
+
 # 带重试的SSH命令执行
 ssh_with_retry() {
     local host=$1
@@ -160,8 +266,11 @@ stop_services() {
                 if systemctl is-active --quiet "$service_name" 2>/dev/null; then
                     sudo systemctl stop "$service_name"
                 fi
-                sudo systemctl disable "$service_name"
-                sudo rm -f "$service_file"
+                sudo systemctl disable "$service_name" 2>/dev/null || true
+                # 安全删除服务文件（只删除特定的 .service 文件）
+                if [ -n "$service_file" ] && [[ "$service_file" == /etc/systemd/system/*.service ]]; then
+                    sudo rm -f "$service_file"
+                fi
                 sudo systemctl daemon-reload
                 log_success "本地节点 $node 的 $service_name 服务已清理"
             else
@@ -175,8 +284,11 @@ stop_services() {
                     if systemctl is-active --quiet $service_name 2>/dev/null; then
                         sudo systemctl stop $service_name
                     fi
-                    sudo systemctl disable $service_name
-                    sudo rm -f \"\$service_file\"
+                    sudo systemctl disable $service_name 2>/dev/null || true
+                    # 安全检查：只删除特定的 .service 文件
+                    if [ -n \"\$service_file\" ] && [[ \"\$service_file\" == /etc/systemd/system/*.service ]]; then
+                        sudo rm -f \"\$service_file\"
+                    fi
                     sudo systemctl daemon-reload
                     echo '节点 $node 的 $service_name 服务已清理'
                 else
@@ -298,16 +410,42 @@ clean_java() {
         local node=$1
         local is_local=$2
         local java_home="${BASE_DIR}/java"
+        local java_install_dir="${BASE_DIR}/java_install"
+        
+        # 安全检查
+        if [ -z "$BASE_DIR" ] || [ "$BASE_DIR" = "/" ]; then
+            log_warning "BASE_DIR无效，跳过Java清理"
+            return 0
+        fi
         
         if [ "$is_local" = true ]; then
-            if [ -d "$java_home" ]; then
-                log_info "删除本地节点Java目录: $java_home"
-                sudo rm -rf "$java_home"
+            # 删除软链接
+            if [ -L "$java_home" ]; then
+                safe_rm "$java_home"
+            elif [ -d "$java_home" ]; then
+                safe_rm "$java_home" true
+            fi
+            # 删除实际的Java安装目录
+            if [ -d "$java_install_dir" ]; then
+                safe_rm "$java_install_dir" true
             fi
         else
+            # 远程节点使用安全删除脚本
+            local remote_script
+            remote_script=$(get_remote_safe_rm_script)
             ssh_with_retry "$node" "
-                if [ -d '$java_home' ]; then
-                    sudo rm -rf '$java_home'
+                $remote_script
+                java_home='$java_home'
+                java_install_dir='$java_install_dir'
+                # 删除软链接
+                if [ -L \"\$java_home\" ]; then
+                    safe_rm \"\$java_home\"
+                elif [ -d \"\$java_home\" ]; then
+                    safe_rm \"\$java_home\" true
+                fi
+                # 删除实际的Java安装目录
+                if [ -d \"\$java_install_dir\" ]; then
+                    safe_rm \"\$java_install_dir\" true
                 fi"
         fi
     }
@@ -368,10 +506,9 @@ remove_files() {
         done
         
         if [ "$is_local" = true ]; then
-            # 删除安装目录
+            # 删除安装目录（使用安全删除）
             if [ -d "$BASE_DIR" ]; then
-                log_info "删除本地安装目录: $BASE_DIR"
-                sudo rm -rf "$BASE_DIR"
+                safe_rm "$BASE_DIR" true
             fi
         else
             # 远程删除前先进行安全检查
@@ -415,7 +552,9 @@ fi"
                     ;;
                 "CAN_DELETE")
                     log_info "节点 $clean_node: 删除目录 $BASE_DIR"
-                    ssh_with_retry "$clean_node" "sudo rm -rf '$BASE_DIR'"
+                    local remote_script
+                    remote_script=$(get_remote_safe_rm_script)
+                    ssh_with_retry "$clean_node" "$remote_script; safe_rm '$BASE_DIR' true"
                     ;;
                 "DIR_NOT_EXIST")
                     log_info "节点 $clean_node: 目录 $BASE_DIR 不存在"

@@ -5,8 +5,8 @@
 
 const PHASES = {
     2: { name: '环境检查', steps: [1, 2, 3, 4, 5, 6, 7] },
-    3: { name: '安装部署', steps: [8, 9, 10, 11, 12] },
-    4: { name: '分发启动', steps: [13, 14, 15, 16] }
+    3: { name: '安装部署', steps: [8, 9, 10, 11] },
+    4: { name: '分发启动', steps: [12, 13, 14, 15, 16] }
 };
 
 let currentPhase = 1;
@@ -37,24 +37,8 @@ const api = {
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
     initEvents();
-    await checkTempFiles();
     loadConfig();
 });
-
-// 检测临时文件
-async function checkTempFiles() {
-    try {
-        const res = await api.call('check_temp');
-        if (res.status === 'found') {
-            const clean = confirm(`检测到上次安装遗留的临时文件 (${res.files})，是否清理？\n\n点击"确定"清理，点击"取消"保留。`);
-            if (clean) {
-                await api.call('clean_temp');
-            }
-        }
-    } catch (e) {
-        console.log('检测临时文件失败');
-    }
-}
 
 // 绑定事件
 function initEvents() {
@@ -66,6 +50,28 @@ function initEvents() {
     // 部署模式切换
     const deployModeEl = $('deployMode');
     if (deployModeEl) deployModeEl.addEventListener('change', toggleDeployMode);
+    
+    // 安装模式切换
+    const installModeEl = $('installMode');
+    if (installModeEl) installModeEl.addEventListener('change', toggleInstallMode);
+    
+    // 检查点存储类型切换
+    const checkpointTypeEl = $('checkpointType');
+    if (checkpointTypeEl) checkpointTypeEl.addEventListener('change', toggleCheckpointType);
+    
+    // 防火墙检查开关
+    const checkFirewallEl = $('checkFirewall');
+    if (checkFirewallEl) checkFirewallEl.addEventListener('change', toggleFirewallAction);
+    
+    // 安装包/插件下载源
+    const packageRepoEl = $('packageRepo');
+    if (packageRepoEl) packageRepoEl.addEventListener('change', togglePackageRepo);
+    const pluginRepoEl = $('pluginRepo');
+    if (pluginRepoEl) pluginRepoEl.addEventListener('change', togglePluginRepo);
+    
+    // 连接器安装开关
+    const installConnectorsEl = $('installConnectors');
+    if (installConnectorsEl) installConnectorsEl.addEventListener('change', toggleConnectorsRow);
     
     // 按钮 - 安全绑定
     const bindClick = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
@@ -91,6 +97,12 @@ async function loadConfig() {
                 if (el) el.value = value;
             });
             toggleDeployMode();
+            toggleInstallMode();
+            toggleCheckpointType();
+            toggleFirewallAction();
+            togglePackageRepo();
+            togglePluginRepo();
+            toggleConnectorsRow();
         }
     } catch (e) {
         console.log('加载配置失败');
@@ -99,9 +111,86 @@ async function loadConfig() {
 
 // 切换部署模式
 function toggleDeployMode() {
-    const mode = $('deployMode').value;
-    $('separatedConfig').classList.toggle('hidden', mode !== 'separated');
-    $('hybridConfig').classList.toggle('hidden', mode !== 'hybrid');
+    const modeEl = $('deployMode');
+    if (!modeEl) return;
+    const mode = modeEl.value;
+    const isHybrid = mode === 'hybrid';
+
+    // 节点配置
+    $('separatedConfig').classList.toggle('hidden', isHybrid);
+    $('hybridConfig').classList.toggle('hidden', !isHybrid);
+
+    // 端口配置：混合模式使用 HYBRID_PORT，分离模式使用 MASTER/WORKER_PORT
+    const hybridPortRow = document.getElementById('hybridPortRow');
+    const masterPortRow = document.getElementById('masterPortRow');
+    const workerPortRow = document.getElementById('workerPortRow');
+    if (hybridPortRow && masterPortRow && workerPortRow) {
+        hybridPortRow.classList.toggle('hidden', !isHybrid);
+        masterPortRow.classList.toggle('hidden', isHybrid);
+        workerPortRow.classList.toggle('hidden', isHybrid);
+    }
+
+    // JVM 配置：混合模式突出 HYBRID_HEAP_SIZE，分离模式突出 Master/Worker
+    const hybridHeapRow = document.getElementById('hybridHeapRow');
+    const masterHeapRow = document.getElementById('masterHeapRow');
+    const workerHeapRow = document.getElementById('workerHeapRow');
+    if (hybridHeapRow && masterHeapRow && workerHeapRow) {
+        hybridHeapRow.classList.toggle('dimmed', !isHybrid);
+        masterHeapRow.classList.toggle('dimmed', isHybrid);
+        workerHeapRow.classList.toggle('dimmed', isHybrid);
+    }
+}
+
+// 切换安装模式（online/offline）
+function toggleInstallMode() {
+    const modeEl = $('installMode');
+    if (!modeEl) return;
+    const mode = modeEl.value;
+    const row = document.getElementById('offlinePackageRow');
+    if (row) row.classList.toggle('hidden', mode !== 'offline');
+}
+
+// 切换检查点存储类型
+function toggleCheckpointType() {
+    const typeEl = $('checkpointType');
+    if (!typeEl) return;
+    const type = typeEl.value;
+    const hdfs = document.getElementById('hdfsConfig');
+    const obj = document.getElementById('objectStorageConfig');
+    if (hdfs) hdfs.classList.toggle('hidden', type !== 'HDFS');
+    if (obj) obj.classList.toggle('hidden', type !== 'OSS' && type !== 'S3');
+}
+
+// 防火墙检查行为联动
+function toggleFirewallAction() {
+    const checkEl = $('checkFirewall');
+    const row = document.getElementById('firewallActionRow');
+    if (!checkEl || !row) return;
+    row.classList.toggle('dimmed', checkEl.value !== 'true');
+}
+
+// 安装包下载源联动
+function togglePackageRepo() {
+    const repoEl = $('packageRepo');
+    const row = document.getElementById('customPackageRow');
+    if (!repoEl || !row) return;
+    row.classList.toggle('hidden', repoEl.value !== 'custom');
+}
+
+// 插件下载源联动
+function togglePluginRepo() {
+    const repoEl = $('pluginRepo');
+    const row = document.getElementById('customPluginRow');
+    if (!repoEl || !row) return;
+    row.classList.toggle('hidden', repoEl.value !== 'custom');
+}
+
+// 连接器开关联动
+function toggleConnectorsRow() {
+    const el = $('installConnectors');
+    const row = document.getElementById('connectorsRow');
+    if (!el || !row) return;
+    row.classList.toggle('dimmed', el.value !== 'true');
 }
 
 // 保存配置并开始
@@ -111,12 +200,48 @@ async function saveConfigAndStart() {
     configData = {};
     
     for (const [key, value] of formData.entries()) {
-        if (value.trim()) configData[key] = value.trim();
+        if (typeof value === 'string' && value.trim()) {
+            configData[key] = value.trim();
+        }
     }
     
+    // 基础校验
     if (!configData.BASE_DIR) {
         alert('请填写安装目录');
         return;
+    }
+    
+    // 离线安装必须填写 PACKAGE_PATH
+    if (configData.INSTALL_MODE === 'offline' && !configData.PACKAGE_PATH) {
+        alert('离线安装模式下必须填写离线安装包路径 (PACKAGE_PATH)');
+        return;
+    }
+    
+    // 部署模式校验
+    if (configData.DEPLOY_MODE === 'separated') {
+        if (!configData.MASTER_IP || !configData.WORKER_IPS) {
+            alert('分离模式下必须配置 Master IP 和 Worker IPs');
+            return;
+        }
+    } else if (configData.DEPLOY_MODE === 'hybrid') {
+        if (!configData.CLUSTER_NODES) {
+            alert('混合模式下必须配置集群节点 IP 列表');
+            return;
+        }
+    }
+    
+    // 检查点存储配置校验（简化）
+    if (configData.CHECKPOINT_STORAGE_TYPE === 'HDFS') {
+        if (!configData.HDFS_NAMENODE_HOST || !configData.HDFS_NAMENODE_PORT) {
+            alert('HDFS 检查点存储需要配置 HDFS_NAMENODE_HOST 和 HDFS_NAMENODE_PORT');
+            return;
+        }
+    }
+    if (configData.CHECKPOINT_STORAGE_TYPE === 'OSS' || configData.CHECKPOINT_STORAGE_TYPE === 'S3') {
+        if (!configData.STORAGE_ENDPOINT || !configData.STORAGE_ACCESS_KEY || !configData.STORAGE_SECRET_KEY || !configData.STORAGE_BUCKET) {
+            alert('OSS/S3 检查点存储需要完整的 Endpoint / AccessKey / SecretKey / Bucket 配置');
+            return;
+        }
     }
     
     const btn = $('btnSaveStart');
@@ -159,6 +284,62 @@ function goToPhase(phase) {
     if (phase === 5) {
         stopPolling();
         showResult();
+    }
+    
+    // 切换到执行阶段时，重新获取状态
+    if (phase >= 2 && phase <= 4) {
+        refreshPhaseStatus(phase);
+    }
+}
+
+// 刷新阶段状态（切换 tab 时调用）
+async function refreshPhaseStatus(phase) {
+    const info = PHASES[phase];
+    if (!info) return;
+    
+    // 先初始化所有步骤为 pending（确保按钮显示）
+    info.steps.forEach(s => setStepStatus(s, 'pending'));
+    
+    try {
+        const data = await api.call('status');
+        
+        // 更新该阶段所有步骤的状态
+        if (data.steps) {
+            info.steps.forEach(s => {
+                const st = data.steps[s];
+                if (st) {
+                    setStepStatus(s, st);
+                }
+            });
+            
+            // 检查阶段整体状态
+            const lastStep = info.steps[info.steps.length - 1];
+            const phaseCompleted = data.steps[lastStep] === 'completed';
+            const phaseFailed = info.steps.some(s => data.steps[s] === 'failed');
+            const phasePaused = info.steps.some(s => data.steps[s] === 'paused');
+            
+            if (phaseCompleted) {
+                phaseStatus[phase] = 'completed';
+                setNavStatus(phase, 'completed');
+                setBadge(phase, 'completed');
+                const nextBtn = $(`btnNext${phase}`);
+                if (nextBtn) nextBtn.disabled = false;
+            } else if (phaseFailed) {
+                phaseStatus[phase] = 'failed';
+                setNavStatus(phase, 'failed');
+                setBadge(phase, 'failed');
+            } else if (phasePaused) {
+                phaseStatus[phase] = 'paused';
+                setNavStatus(phase, 'paused');
+                setBadge(phase, 'paused');
+            }
+        }
+        
+        // 刷新日志
+        refreshLog();
+    } catch (e) {
+        console.error('获取状态失败:', e);
+        // API 失败时，步骤已经初始化为 pending，按钮仍会显示
     }
 }
 
@@ -213,6 +394,7 @@ function startPolling(phase) {
                     if (st === 'completed') setStepStatus(s, 'completed');
                     else if (st === 'running') setStepStatus(s, 'running');
                     else if (st === 'failed') setStepStatus(s, 'failed');
+                    else if (st === 'paused') setStepStatus(s, 'paused');
                     else if (st === 'pending') setStepStatus(s, 'pending');
                 });
             }
@@ -222,6 +404,9 @@ function startPolling(phase) {
             // 检查当前阶段是否完成
             const phaseCompleted = data.steps && data.steps[lastStep] === 'completed';
             const phaseFailed = data.steps && info.steps.some(s => data.steps[s] === 'failed');
+            
+            // 检查是否有暂停的步骤
+            const phasePaused = data.steps && info.steps.some(s => data.steps[s] === 'paused');
             
             if (phaseCompleted) {
                 // 阶段完成，更新状态但不停止轮询（继续刷新日志）
@@ -236,6 +421,13 @@ function startPolling(phase) {
                 phaseStatus[phase] = 'failed';
                 setNavStatus(phase, 'failed');
                 setBadge(phase, 'failed');
+                refreshLog(); // 最后刷新一次日志
+            } else if (phasePaused) {
+                // 阶段暂停，停止轮询
+                stopPolling();
+                phaseStatus[phase] = 'paused';
+                setNavStatus(phase, 'paused');
+                setBadge(phase, 'paused');
                 refreshLog(); // 最后刷新一次日志
             }
         } catch (e) {
@@ -257,7 +449,7 @@ function stopPolling() {
 function setNavStatus(phase, status) {
     const el = $(`navStatus${phase}`);
     if (!el) return;
-    const icons = { running: '🔄', completed: '✅', failed: '❌' };
+    const icons = { running: '●', completed: '✓', failed: '!', paused: 'Ⅱ' };
     el.textContent = icons[status] || '';
 }
 
@@ -265,7 +457,7 @@ function setNavStatus(phase, status) {
 function setBadge(phase, status) {
     const el = $(`badge${phase}`);
     if (!el) return;
-    const texts = { running: '执行中', completed: '已完成', failed: '失败' };
+    const texts = { running: '执行中', completed: '已完成', failed: '失败', paused: '已暂停' };
     el.textContent = texts[status] || '';
     el.className = `status-badge ${status}`;
 }
@@ -276,40 +468,74 @@ function setStepIcon(step, icon) {
     if (el) el.textContent = icon;
 }
 
-// 设置步骤状态 (新方法，显示图标+重试按钮)
+// 设置步骤状态 (显示图标+操作按钮)
 function setStepStatus(step, status) {
     const row = document.querySelector(`.step-row[data-step="${step}"]`);
     if (!row) return;
     
     const iconEl = row.querySelector('.step-icon');
-    const icons = { pending: '⏳', running: '🔄', completed: '✅', failed: '❌' };
-    if (iconEl) iconEl.textContent = icons[status] || '⏳';
+    const icons = { pending: '○', running: '●', completed: '✓', failed: '✗', paused: 'Ⅱ' };
+    if (iconEl) iconEl.textContent = icons[status] || '○';
     
     // 更新行样式
     row.className = `step-row status-${status}`;
     
-    // 失败时显示重试按钮
-    let retryBtn = row.querySelector('.btn-retry-step');
-    if (status === 'failed') {
-        if (!retryBtn) {
-            retryBtn = document.createElement('button');
-            retryBtn.className = 'btn-retry-step';
-            retryBtn.textContent = '重试';
-            retryBtn.onclick = () => retryStep(step);
-            row.appendChild(retryBtn);
-        }
-    } else if (retryBtn) {
-        retryBtn.remove();
+    // 清除旧的操作按钮容器
+    let actionsEl = row.querySelector('.step-actions');
+    if (!actionsEl) {
+        actionsEl = document.createElement('div');
+        actionsEl.className = 'step-actions';
+        row.appendChild(actionsEl);
+    }
+    actionsEl.innerHTML = '';
+    
+    // 根据状态显示不同按钮
+    switch (status) {
+        case 'pending':
+            // 待执行：显示"运行"按钮
+            actionsEl.innerHTML = `
+                <button class="btn-step btn-run" onclick="runSingleStep(${step})">运行</button>
+                <button class="btn-step btn-continue" onclick="continueFromStep(${step})">从此继续</button>
+            `;
+            break;
+        case 'running':
+            // 执行中：显示"暂停"按钮
+            actionsEl.innerHTML = `
+                <button class="btn-step btn-pause" onclick="pauseExecution()">暂停</button>
+            `;
+            break;
+        case 'completed':
+            // 已完成：显示"重新运行"按钮（可选）
+            actionsEl.innerHTML = `
+                <button class="btn-step btn-rerun" onclick="runSingleStep(${step})">重新运行</button>
+            `;
+            break;
+        case 'failed':
+            // 失败：显示"重试"和"从此继续"按钮
+            actionsEl.innerHTML = `
+                <button class="btn-step btn-retry" onclick="runSingleStep(${step})">重试</button>
+                <button class="btn-step btn-continue" onclick="continueFromStep(${step})">从此继续</button>
+            `;
+            break;
+        case 'paused':
+            // 已暂停：显示"继续"按钮
+            actionsEl.innerHTML = `
+                <button class="btn-step btn-resume" onclick="continueFromStep(${step})">继续执行</button>
+            `;
+            break;
     }
 }
 
-// 重试单个步骤
-function retryStep(step) {
+// 运行单个步骤
+function runSingleStep(step) {
     setStepStatus(step, 'running');
     
     // 找到该步骤所属阶段并开始轮询
     for (const [phase, info] of Object.entries(PHASES)) {
         if (info.steps.includes(step)) {
+            phaseStatus[phase] = 'running';
+            setNavStatus(phase, 'running');
+            setBadge(phase, 'running');
             startPolling(parseInt(phase));
             break;
         }
@@ -317,13 +543,69 @@ function retryStep(step) {
     
     // 异步发起请求（不阻塞）
     fetch(`/cgi-bin/run.sh?action=run_step&step=${step}`)
-        .catch(e => console.error('重试步骤失败:', e));
+        .catch(e => console.error('执行步骤失败:', e));
 }
 
-// 刷新日志 - 高亮 ERROR/WARN/SUCCESS
+// 从指定步骤继续执行到阶段结束
+function continueFromStep(step) {
+    // 找到该步骤所属阶段
+    for (const [phase, info] of Object.entries(PHASES)) {
+        if (info.steps.includes(step)) {
+            const endStep = info.steps[info.steps.length - 1];
+            
+            // 更新状态
+            phaseStatus[phase] = 'running';
+            setNavStatus(phase, 'running');
+            setBadge(phase, 'running');
+            
+            // 将从当前步骤到结束的所有步骤设为 pending
+            for (let s = step; s <= endStep; s++) {
+                if (info.steps.includes(s)) {
+                    setStepStatus(s, 'pending');
+                }
+            }
+            setStepStatus(step, 'running');
+            
+            // 开始轮询
+            startPolling(parseInt(phase));
+            
+            // 发起从当前步骤到阶段结束的执行请求
+            fetch(`/cgi-bin/run.sh?action=run_range&start=${step}&end=${endStep}`)
+                .catch(e => console.error('继续执行失败:', e));
+            break;
+        }
+    }
+}
+
+// 暂停执行
+function pauseExecution() {
+    fetch(`/cgi-bin/run.sh?action=pause`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                // 更新当前运行中的步骤为 paused
+                document.querySelectorAll('.step-row.status-running').forEach(row => {
+                    const step = parseInt(row.dataset.step);
+                    setStepStatus(step, 'paused');
+                });
+            }
+        })
+        .catch(e => console.error('暂停失败:', e));
+}
+
+// 日志缓存，用于增量更新
+let lastLogHash = '';
+let lastLogLineCount = 0;
+let userScrolled = false;  // 用户是否手动滚动过
+
+// 刷新日志 - 高亮 ERROR/WARN/SUCCESS，增量更新
 async function refreshLog() {
     const el = $('logContent');
-    el.innerHTML = '<span style="color:#64748b">加载中...</span>';
+    
+    // 首次加载显示加载中
+    if (!lastLogHash) {
+        el.innerHTML = '<span style="color:#64748b">加载中...</span>';
+    }
     
     try {
         const data = await api.call('log', { lines: 200 });
@@ -335,6 +617,18 @@ async function refreshLog() {
                 .replace(/\[0m/g, '')
                 .replace(/\[1;[0-9]+m/g, '');
             
+            // 计算日志哈希（简单使用长度+最后100字符）
+            const logHash = text.length + '_' + text.slice(-100);
+            
+            // 如果日志没有变化，不更新页面
+            if (logHash === lastLogHash) {
+                return;
+            }
+            lastLogHash = logHash;
+            
+            // 记录当前滚动位置
+            const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+            
             // 按行处理，高亮不同级别
             const lines = text.split('\n').map(line => {
                 const escaped = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -344,15 +638,26 @@ async function refreshLog() {
                 if (line.includes('[DEBUG]')) return `<span class="log-debug">${escaped}</span>`;
                 return escaped;
             });
+            
             el.innerHTML = lines.join('\n') || '暂无日志';
+            lastLogLineCount = lines.length;
+            
+            // 只有当用户在底部时才自动滚动到底部
+            if (wasAtBottom) {
+                el.scrollTop = el.scrollHeight;
+            }
         } else {
-            el.innerHTML = '暂无日志';
+            if (lastLogHash !== 'empty') {
+                el.innerHTML = '暂无日志';
+                lastLogHash = 'empty';
+            }
         }
     } catch (e) {
-        el.innerHTML = '<span class="log-error">加载失败</span>';
+        if (lastLogHash !== 'error') {
+            el.innerHTML = '<span class="log-error">加载失败</span>';
+            lastLogHash = 'error';
+        }
     }
-    
-    el.scrollTop = el.scrollHeight;
 }
 
 // 显示结果

@@ -337,28 +337,6 @@ install_if_missing() {
     sudo chmod +x "$binary_path"
 }
 
-# ============================================================================
-# yq YAML处理工具
-# ============================================================================
-
-# 检测并启用yq
-ensure_yq() {
-    if command -v yq >/dev/null 2>&1; then
-        USE_YQ=true
-        return 0
-    fi
-
-    install_if_missing yq || true
-
-    if command -v yq >/dev/null 2>&1; then
-        USE_YQ=true
-        log_info "已启用yq进行YAML修改"
-    else
-        USE_YQ=false
-        log_warning "未检测到yq，继续使用sed/awk回退逻辑"
-    fi
-}
-
 # 使用yq修改YAML的统一封装函数
 # 参数:
 #   $1: yaml文件路径
@@ -374,7 +352,7 @@ replace_yaml_with_yq() {
         return 1
     fi
     
-    if [ "$USE_YQ" != "true" ] || ! command -v yq >/dev/null 2>&1; then
+    if ! command -v yq >/dev/null 2>&1; then
         log_error "yq未启用或不可用，无法执行YAML修改"
         return 1
     fi

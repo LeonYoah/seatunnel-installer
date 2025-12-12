@@ -14,7 +14,10 @@ LIB_DIR="$SCRIPT_DIR/lib"
 INSTALL_SCRIPT="$SCRIPT_DIR/install_seatunnel.sh"
 PID_FILE="$SCRIPT_DIR/.web_server.pid"
 HTTPD_CONF="$SCRIPT_DIR/.httpd.conf"
-PORT=${1:-8888}
+
+# 默认值
+PORT=8888
+FORCE_CLEAN=false
 
 # 颜色
 RED='\033[0;31m'
@@ -84,8 +87,21 @@ A:*
 EOF
 }
 
+# 清理临时文件
+clean_temp_files() {
+    log_info "清理临时文件..."
+    rm -f "$SCRIPT_DIR/.step_status" 2>/dev/null
+    rm -f "$SCRIPT_DIR/.install_status" 2>/dev/null
+    rm -f "$SCRIPT_DIR/.install_pid" 2>/dev/null
+    rm -f "$SCRIPT_DIR/.web_install.log" 2>/dev/null
+    rm -f "$SCRIPT_DIR/.install_step_status" 2>/dev/null
+}
+
 # 启动服务器
 start_server() {
+    # 仅在 -c 参数时清理临时文件
+    [ "$FORCE_CLEAN" = true ] && clean_temp_files
+    
     local busybox_cmd
     busybox_cmd=$(get_busybox) || log_error "找不到 busybox，请确保 lib/busybox-x86 或 lib/busybox-arm64 存在"
     
@@ -131,39 +147,59 @@ show_help() {
     cat << EOF
 SeaTunnel Web 安装向导 (busybox httpd)
 
-用法: $0 [命令] [端口]
+用法: $0 [选项] <命令>
+
+选项:
+    -p <端口>       指定端口 (默认: 8888)
+    -c              启动前清理临时文件
 
 命令:
-    start [端口]    启动 (默认: 8888)
-    stop            停止
-    status          状态
-    help            帮助
-
-API (GET /api/run.sh?action=xxx):
-    action=steps              获取步骤列表
-    action=run                启动完整安装
-    action=run&step=N         执行指定步骤
-    action=status             获取状态
-    action=stop               停止安装
-    action=log&lines=100      获取日志
-    action=config_load        加载配置
-    action=config_save (POST) 保存配置
-    action=check&type=all     环境检查
+    start           启动服务器
+    stop            停止服务器
+    status          查看状态
+    clean           仅清理临时文件
+    help            显示帮助
 
 示例:
-    $0              # 启动
-    $0 9000         # 端口9000启动
-    $0 stop         # 停止
+    $0 start                # 默认端口启动
+    $0 -p 9000 start        # 端口9000启动
+    $0 -c start             # 清理后启动
+    $0 -c -p 9000 start     # 清理后端口9000启动
+    $0 stop                 # 停止
+    $0 clean                # 仅清理临时文件
 EOF
+}
+
+# 解析参数
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -p)
+                shift
+                [ -z "$1" ] && log_error "-p 需要指定端口号"
+                PORT="$1"
+                ;;
+            -c)
+                FORCE_CLEAN=true
+                ;;
+            start|stop|status|clean|help|--help|-h)
+                ACTION="$1"
+                ;;
+            *)
+                log_error "未知参数: $1"
+                ;;
+        esac
+        shift
+    done
 }
 
 # 主函数
 main() {
-    local action="${1:-start}"
+    ACTION="start"
+    parse_args "$@"
     
-    case "$action" in
-        start|[0-9]*)
-            [[ "$action" =~ ^[0-9]+$ ]] && PORT="$action" || [ -n "$2" ] && PORT="$2"
+    case "$ACTION" in
+        start)
             check_port || log_error "端口 $PORT 已被占用"
             [ -d "$WWW_DIR" ] || log_error "Web 目录不存在: $WWW_DIR"
             [ -f "$INSTALL_SCRIPT" ] || log_error "安装脚本不存在: $INSTALL_SCRIPT"
@@ -184,13 +220,19 @@ main() {
             trap stop_server EXIT INT TERM
             wait
             ;;
-        stop) stop_server ;;
+        stop)
+            stop_server
+            ;;
         status)
             [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null && \
                 log_info "运行中 (PID: $(cat "$PID_FILE"), 端口: $PORT)" || echo "未运行"
             ;;
-        help|--help|-h) show_help ;;
-        *) log_error "未知命令: $action" ;;
+        clean)
+            clean_temp_files
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
     esac
 }
 
