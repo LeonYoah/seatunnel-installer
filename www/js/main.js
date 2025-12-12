@@ -73,6 +73,15 @@ function initEvents() {
     const installConnectorsEl = $('installConnectors');
     if (installConnectorsEl) installConnectorsEl.addEventListener('change', toggleConnectorsRow);
     
+    // 版本下拉框联动输入框
+    const versionSelectEl = $('versionSelect');
+    if (versionSelectEl) versionSelectEl.addEventListener('change', function() {
+        if (this.value) {
+            $('versionInput').value = this.value;
+            this.value = ''; // 重置下拉框显示"选择版本"
+        }
+    });
+    
     // 按钮 - 安全绑定
     const bindClick = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
     bindClick('btnSaveStart', saveConfigAndStart);
