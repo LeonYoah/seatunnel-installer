@@ -1390,27 +1390,27 @@ disable.cache: true"
             ;;
     esac
     
-    # 使用yq修改plugin-config
+    # 使用yq修改 seatunnel.engine.checkpoint.storage.plugin-config
     local seatunnel_yaml="$SEATUNNEL_HOME/config/seatunnel.yaml"
     case "$CHECKPOINT_STORAGE_TYPE" in
         LOCAL_FILE)
             replace_yaml_with_yq "$seatunnel_yaml" \
-                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "local"}' \
+                '.seatunnel.engine.checkpoint.storage."plugin-config" = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "local"}' \
                 "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE'"
             ;;
         HDFS)
             replace_yaml_with_yq "$seatunnel_yaml" \
-                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "hdfs", "fs.defaultFS": ("hdfs://" + env(HDFS_NAMENODE_HOST) + ":" + env(HDFS_NAMENODE_PORT))}' \
+                '.seatunnel.engine.checkpoint.storage."plugin-config" = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "hdfs", "fs.defaultFS": ("hdfs://" + env(HDFS_NAMENODE_HOST) + ":" + env(HDFS_NAMENODE_PORT))}' \
                 "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE' HDFS_NAMENODE_HOST='$HDFS_NAMENODE_HOST' HDFS_NAMENODE_PORT='$HDFS_NAMENODE_PORT'"
             ;;
         OSS)
             replace_yaml_with_yq "$seatunnel_yaml" \
-                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "oss", "oss.bucket": env(STORAGE_BUCKET), "fs.oss.endpoint": env(STORAGE_ENDPOINT), "fs.oss.accessKeyId": env(STORAGE_ACCESS_KEY), "fs.oss.accessKeySecret": env(STORAGE_SECRET_KEY)}' \
+                '.seatunnel.engine.checkpoint.storage."plugin-config" = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "oss", "oss.bucket": env(STORAGE_BUCKET), "fs.oss.endpoint": env(STORAGE_ENDPOINT), "fs.oss.accessKeyId": env(STORAGE_ACCESS_KEY), "fs.oss.accessKeySecret": env(STORAGE_SECRET_KEY)}' \
                 "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE' STORAGE_BUCKET='$STORAGE_BUCKET' STORAGE_ENDPOINT='$STORAGE_ENDPOINT' STORAGE_ACCESS_KEY='$STORAGE_ACCESS_KEY' STORAGE_SECRET_KEY='$STORAGE_SECRET_KEY'"
             ;;
         S3)
             replace_yaml_with_yq "$seatunnel_yaml" \
-                '.["plugin-config"] = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "s3", "s3.bucket": env(STORAGE_BUCKET), "fs.s3a.endpoint": env(STORAGE_ENDPOINT), "fs.s3a.access.key": env(STORAGE_ACCESS_KEY), "fs.s3a.secret.key": env(STORAGE_SECRET_KEY), "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider", "disable.cache": true}' \
+                '.seatunnel.engine.checkpoint.storage."plugin-config" = {"namespace": env(CHECKPOINT_NAMESPACE), "storage.type": "s3", "s3.bucket": env(STORAGE_BUCKET), "fs.s3a.endpoint": env(STORAGE_ENDPOINT), "fs.s3a.access.key": env(STORAGE_ACCESS_KEY), "fs.s3a.secret.key": env(STORAGE_SECRET_KEY), "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider", "disable.cache": true}' \
                 "CHECKPOINT_NAMESPACE='$CHECKPOINT_NAMESPACE' STORAGE_BUCKET='$STORAGE_BUCKET' STORAGE_ENDPOINT='$STORAGE_ENDPOINT' STORAGE_ACCESS_KEY='$STORAGE_ACCESS_KEY' STORAGE_SECRET_KEY='$STORAGE_SECRET_KEY'"
             ;;
     esac
