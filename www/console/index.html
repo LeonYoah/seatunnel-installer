@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SeaTunnel 运维控制台（原型）</title>
+  <link rel="stylesheet" href="css/console.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">ST</div>
+        <div class="brand-text">
+          <div class="brand-title">SeaTunnel Console</div>
+          <div class="brand-subtitle">运维与任务控制台（原型）</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <a class="nav-item" href="#/dashboard" data-route="/dashboard">总览</a>
+        <a class="nav-item" href="#/tasks" data-route="/tasks">任务</a>
+        <a class="nav-item" href="#/clusters" data-route="/clusters">集群/节点</a>
+        <a class="nav-item" href="#/diagnostics" data-route="/diagnostics">诊断</a>
+        <a class="nav-item" href="#/plugins" data-route="/plugins">插件市场</a>
+        <a class="nav-item" href="#/settings" data-route="/settings">设置</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a class="link" href="../index.html">返回安装向导</a>
+        <div class="muted" id="sidebarMeta"></div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="topbar-title" id="pageTitle">总览</div>
+          <div class="chip chip-info" id="dataModeChip" title="当前为原型数据模式">原型数据</div>
+        </div>
+        <div class="topbar-right">
+          <label class="field field-inline">
+            <span class="field-label">集群</span>
+            <select id="clusterSelect" class="input input-sm">
+              <option value="default">default</option>
+              <option value="prod">prod</option>
+              <option value="test">test</option>
+            </select>
+          </label>
+          <input id="globalSearch" class="input input-sm" placeholder="搜索任务/节点/告警…" />
+          <button id="btnRefresh" class="btn btn-sm btn-outline" type="button">刷新</button>
+        </div>
+      </header>
+
+      <main class="content" id="appContent" aria-live="polite"></main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="js/console.js"></script>
+</body>
+</html>
+
