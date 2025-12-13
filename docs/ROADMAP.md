@@ -183,7 +183,7 @@
 
 ---
 
-### Iteration 7：扩缩容与发布（裸机/容器/K8s 全覆盖）
+### Iteration 7A：扩缩容与发布（裸机/容器/K8s 全覆盖）
 **目标**
 - 把“扩容/升级/发布”做成流程化能力，三种部署形态都可用。
 
@@ -195,6 +195,130 @@
 
 **验收**
 - 三种形态至少完成“扩容一次 + 滚动升级一次 + 可回滚”闭环。
+
+
+
+
+### Iteration 7B：一键二开 SeaTunnel 源码 → 打包 → 分发 → 重启/回滚
+
+> 目标：在控制台内完成“基于 SeaTunnel 源码的二开构建”，并将产物安全分发到集群，按策略滚动重启，失败可自动回滚。
+> 上游源码：`https://github.com/apache/seatunnel`（SSH：`git@github.com:apache/seatunnel.git`）。
+
+**适用场景**
+- 企业需要在上游基础上做二开：修 bug、加 connector、改默认配置、补丁回合并前热修。
+- 需要统一发布流程：可追溯（commit → artifact → rollout）、可回滚、可审计。
+
+**核心概念（建议新增资源类型）**
+- `SourceRepo`：源码仓库（URL、认证、镜像/代理策略、默认分支）
+- `BuildProfile`：构建配置（JDK/Maven 版本、mvn 参数、是否跑测试、modules、产物类型）
+- `Build`：一次构建（repo/ref/patch、触发者、状态机、日志、产物列表）
+- `Artifact`：构建产物（tar.gz / docker image）、checksum、签名、SBOM、保存策略
+- `Rollout`：一次发布（目标集群、策略、批次、健康检查、回滚点、审计）
+
+---
+
+#### 7B-1. 构建（Build）设计
+
+**输入（用户在控制台配置）**
+- `repo_url`：默认 `https://github.com/apache/seatunnel`（也支持企业 fork）
+- `ref`：tag/branch/commit（建议强制落到 commit sha，保证可复现）
+- `patch`（可选）：支持三种方式之一
+  - 指定 PR/分支（从 fork 拉取）
+  - 上传 patch（git diff）
+  - 内置“热修文件”覆盖（谨慎，需审计）
+- `build_mode`：
+  - `dist-tar`：产出 `apache-seatunnel-*-bin.tar.gz`（裸机/离线分发常用）
+  - `docker-image`：产出运行镜像（容器/K8s 常用）
+- `java`：建议锁定 8/11（与 SeaTunnel 版本匹配），构建环境必须显式声明
+- `mvn_args`：如 `-DskipTests`、`-P...`、`-pl ... -am` 等
+- `connectors`：可选“仅打包指定 connector 集合”，减少产物体积
+
+**构建执行位置（两种方案，优先 B）**
+- 方案 A：Control Plane 本机构建（只适合 PoC/小规模）
+- 方案 B：Builder/Runner（推荐）
+  - 裸机：一个或多台 build 节点，运行 build-agent（Go worker）
+  - K8s：Job/Runner（带 Maven cache 的镜像），构建完成推送 artifact store/registry
+
+**产物与安全**
+- `checksum`：至少 `sha256`（每个文件）
+- `签名`：建议支持 `cosign`（镜像/文件）或 `gpg`（文件）
+- `SBOM`：建议 CycloneDX（后续接入合规扫描）
+- `保留策略`：按 workspace/cluster 设置保留 N 个版本 + TTL
+
+**状态机（示例）**
+- `QUEUED → FETCHING → BUILDING → PACKAGING → PUBLISHING → SUCCEEDED/FAILED`
+
+**验收**
+- 可用同一 commit 多次构建得到一致 checksum（可复现）
+- 构建日志与参数可追溯（含触发者/租户/时间）
+
+---
+
+#### 7B-2. 分发（Distribute）设计
+
+**分发目标按部署形态区分**
+- 裸机（systemd）
+  - Agent 在节点执行：下载 artifact → 校验 sha256/签名 → 解压到版本目录 → 切换 `current` 软链 → 触发重启
+- 容器（compose）
+  - 方式 1：分发 tar（挂载到容器）+ 重启
+  - 方式 2：分发镜像（推荐）：更新 image tag + `docker compose up -d`
+- K8s（Helm）
+  - 镜像构建完成后：更新 Helm values（image tag/digest）→ `helm upgrade` → watch rollout → 回滚
+
+**离线/内网场景**
+- 支持“制品仓库镜像”：artifact store（Nexus/MinIO/OSS/S3/本地）与镜像仓库（Harbor）
+- 支持“U 盘/离线包导入”：artifact 先导入控制面，再分发到节点
+
+**验收**
+- 任意节点分发失败不会影响其他节点（批次隔离）
+- 分发全程可审计：谁发布到哪个集群/哪些节点/结果
+
+---
+
+#### 7B-3. 重启与发布（Rollout）设计
+
+**发布策略（从简单到复杂）**
+- `all-at-once`：一次性重启（仅测试环境）
+- `rolling`：滚动发布（默认）
+  - 批次大小：按百分比或固定节点数
+  - 批次间隔：等待健康检查通过
+- `canary`：金丝雀
+  - 先 1 个节点/1% 节点，观测窗口后再扩大
+
+**健康检查（必须可配置）**
+- systemd：`systemctl is-active` + `journalctl` 关键字扫描（最小可用）
+- 端口/进程：检查 master/worker 端口存活
+- 应用级：如果后续有健康 API（建议），用 HTTP/gRPC 探活
+
+**回滚点**
+- 裸机：保留 `current` 的上一个版本目录（或 N 个版本），失败时切回软链并重启
+- K8s：`helm rollback` / `kubectl rollout undo`
+
+**发布状态机（示例）**
+- `PLANNED → STAGING → APPLYING(batch i) → VERIFYING(batch i) → SUCCEEDED/FAILED → (ROLLING_BACK) → ROLLED_BACK`
+
+**验收**
+- 滚动发布过程中，任意批次失败可停止并回滚，集群最终可恢复到上一个稳定版本
+
+---
+
+#### 7B-4. 控制台/接口（建议）
+
+**页面**
+- `Builds`：构建列表/详情（日志、产物、SBOM、签名）
+- `Artifacts`：制品库（下载、复制到其他 workspace、清理策略）
+- `Rollouts`：发布计划/执行详情（批次、节点结果、回滚）
+
+**权限点（RBAC）**
+- `build:create/read/cancel`
+- `artifact:read/promote/delete`
+- `rollout:create/approve/execute/rollback`
+
+---
+
+**不做（Iteration 7B 范围外）**
+- 不做企业级 CI 替代品（只提供最小闭环，可对接外部 CI）
+- 不做复杂依赖合规扫描平台（先产出 SBOM/签名即可）
 
 ---
 
