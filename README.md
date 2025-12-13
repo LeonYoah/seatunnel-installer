@@ -39,6 +39,9 @@ Flink/Spark 模式请自行适配。
 4) 弹性与发布：先手动扩缩容与滚动发布，再加自动策略（阈值/预测），支持金丝雀/蓝绿。
 5) 安全与生态：RBAC、多租户、审计；插件/connector 市场与 SDK，便于社区贡献与扩展。
 
+## 控制面路线图（详细）
+- 迭代规划（裸机/容器/K8s、多租户、SQLite/MySQL/PostgreSQL/Oracle）：`docs/ROADMAP.md`
+
 ## Web UI 原型（文本线框）
 - 总览 Dashboard  
   - 顶部卡片：集群健康/节点数/版本；任务成功率；延迟 P50/P95；吞吐；告警计数。  
