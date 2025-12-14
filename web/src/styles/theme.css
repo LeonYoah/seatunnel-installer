@@ -1,0 +1,1581 @@
+/**
+ * 主题变量定义
+ * 参考 www/console/css/console.css 的暗色主题
+ */
+
+/* 明亮模式（默认） */
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e4e7ed;
+  --text: #303133;
+  --muted: #909399;
+  --primary: #409eff;
+  --primary-2: #337ecc;
+  --success: #67c23a;
+  --warning: #e6a23c;
+  --error: #f56c6c;
+  --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 暗色模式 */
+html.dark {
+  --bg: #0b1220;
+  --surface: #0f1b31;
+  --surface-2: #122243;
+  --border: #1f325a;
+  --text: #e6edf7;
+  --muted: #9fb2d1;
+  --primary: #3b82f6;
+  --primary-2: #2563eb;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* 暗色模式背景渐变 */
+html.dark body {
+  background: radial-gradient(900px 500px at 0% 0%, rgba(59, 130, 246, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(16, 185, 129, 0.12), transparent 60%), var(--bg);
+}
+
+/* 暗色模式下的 Element Plus 组件样式覆盖 */
+html.dark .el-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+html.dark .el-menu {
+  background: transparent;
+  border-color: var(--border);
+}
+
+html.dark .el-menu-item {
+  color: var(--muted);
+}
+
+html.dark .el-menu-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+html.dark .el-menu-item.is-active {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: var(--text);
+}
+
+html.dark .el-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+html.dark .el-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+html.dark .el-button--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+html.dark .el-button--primary:hover {
+  background: var(--primary-2);
+  border-color: var(--primary-2);
+}
+
+html.dark .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
+html.dark .el-input__wrapper:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+html.dark .el-input__wrapper.is-focus {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+html.dark .el-input__inner {
+  color: var(--text);
+}
+
+html.dark .el-dropdown-menu {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-dropdown-menu__item {
+  color: var(--text);
+}
+
+html.dark .el-dropdown-menu__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 表格样式 */
+html.dark .el-table {
+  background: transparent;
+  color: var(--text);
+}
+
+html.dark .el-table th.el-table__cell {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+html.dark .el-table tr {
+  background: transparent;
+}
+
+html.dark .el-table td.el-table__cell {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .el-table__body tr:hover > td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+html.dark .el-table__empty-text {
+  color: var(--muted);
+}
+
+html.dark .el-table--enable-row-hover .el-table__body tr:hover > td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 空状态 */
+html.dark .el-empty {
+  color: var(--muted);
+}
+
+html.dark .el-empty__description {
+  color: var(--muted);
+}
+
+/* 标签 */
+html.dark .el-tag {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html.dark .el-tag--primary {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #cfe1ff;
+}
+
+html.dark .el-tag--success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.28);
+  color: #c9ffe9;
+}
+
+html.dark .el-tag--warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #ffe7b4;
+}
+
+html.dark .el-tag--danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffd0d0;
+}
+
+html.dark .el-tag--info {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+}
+
+/* 下拉框 Select */
+html.dark .el-select .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .el-select .el-input__wrapper:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+html.dark .el-select .el-input__wrapper.is-focus {
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+html.dark .el-select-dropdown {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-select-dropdown__item {
+  color: var(--text);
+}
+
+html.dark .el-select-dropdown__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html.dark .el-select-dropdown__item.is-selected {
+  background: rgba(59, 130, 246, 0.16);
+  color: var(--text);
+}
+
+html.dark .el-select-dropdown__item.is-disabled {
+  color: var(--muted);
+}
+
+/* 折叠面板 Collapse */
+html.dark .el-collapse {
+  border-color: var(--border);
+}
+
+html.dark .el-collapse-item__header {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .el-collapse-item__header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html.dark .el-collapse-item__wrap {
+  background: transparent;
+  border-color: var(--border);
+}
+
+html.dark .el-collapse-item__content {
+  color: var(--text);
+}
+
+/* 进度条 Progress */
+html.dark .el-progress__text {
+  color: var(--text);
+}
+
+html.dark .el-progress-bar__outer {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 复选框 Checkbox */
+html.dark .el-checkbox__label {
+  color: var(--text);
+}
+
+html.dark .el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+html.dark .el-checkbox__inner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+html.dark .el-checkbox__inner:hover {
+  border-color: var(--primary);
+}
+
+/* 单选框 Radio */
+html.dark .el-radio__label {
+  color: var(--text);
+}
+
+html.dark .el-radio__input.is-checked .el-radio__inner {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+html.dark .el-radio__inner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 开关 Switch */
+html.dark .el-switch__core {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+html.dark .el-switch.is-checked .el-switch__core {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* 时间选择器 TimePicker */
+html.dark .el-time-panel {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-time-panel__content {
+  color: var(--text);
+}
+
+html.dark .el-time-spinner__item {
+  color: var(--text);
+}
+
+html.dark .el-time-spinner__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html.dark .el-time-spinner__item.is-active {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 数字输入框 InputNumber */
+html.dark .el-input-number {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html.dark .el-input-number .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .el-input-number__decrease,
+html.dark .el-input-number__increase {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+html.dark .el-input-number__decrease:hover,
+html.dark .el-input-number__increase:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
+}
+
+/* 分页 Pagination */
+html.dark .el-pagination {
+  color: var(--text);
+}
+
+html.dark .el-pagination button {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .el-pagination button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
+}
+
+html.dark .el-pagination button:disabled {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+}
+
+html.dark .el-pager li {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .el-pager li:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
+}
+
+html.dark .el-pager li.is-active {
+  background: rgba(59, 130, 246, 0.16);
+  color: var(--text);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+html.dark .el-pagination__sizes .el-select .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .el-pagination__jump {
+  color: var(--text);
+}
+
+html.dark .el-pagination__total {
+  color: var(--text);
+}
+
+/* 消息框 MessageBox */
+html.dark .el-message-box {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-message-box__title {
+  color: var(--text);
+}
+
+html.dark .el-message-box__content {
+  color: var(--text);
+}
+
+html.dark .el-message-box__message {
+  color: var(--text);
+}
+
+/* 消息提示 Message */
+html.dark .el-message {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-message__content {
+  color: var(--text);
+}
+
+/* 链接 Link */
+html.dark .el-link {
+  color: var(--primary);
+}
+
+html.dark .el-link:hover {
+  color: var(--primary-2);
+}
+
+html.dark .el-link.is-disabled {
+  color: var(--muted);
+}
+
+/* 表单 Form */
+html.dark .el-form-item__label {
+  color: var(--text);
+}
+
+html.dark .el-form-item__error {
+  color: var(--error);
+}
+
+/* 头像 Avatar */
+html.dark .el-avatar {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+/* 行 Row 和列 Col - 确保背景透明 */
+html.dark .el-row {
+  background: transparent;
+}
+
+html.dark .el-col {
+  background: transparent;
+}
+
+/* 描述列表 Descriptions */
+html.dark .el-descriptions {
+  color: var(--text) !important;
+}
+
+html.dark .el-descriptions__header {
+  color: var(--text) !important;
+}
+
+html.dark .el-descriptions__title {
+  color: var(--text) !important;
+}
+
+html.dark .el-descriptions__body {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-descriptions__table {
+  border-color: var(--border) !important;
+  background: transparent !important;
+}
+
+html.dark .el-descriptions__cell {
+  border-color: var(--border) !important;
+  background: transparent !important;
+}
+
+html.dark .el-descriptions__label {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+html.dark .el-descriptions__content {
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-descriptions--bordered .el-descriptions__cell {
+  border-color: var(--border) !important;
+}
+
+html.dark .el-descriptions-item__label {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-descriptions-item__content {
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: var(--text) !important;
+}
+
+/* 警告框 Alert */
+html.dark .el-alert {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-alert__title {
+  color: var(--text) !important;
+}
+
+html.dark .el-alert__description {
+  color: var(--text) !important;
+}
+
+html.dark .el-alert--info {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+html.dark .el-alert--info .el-alert__title,
+html.dark .el-alert--info .el-alert__description,
+html.dark .el-alert--info div,
+html.dark .el-alert--info strong {
+  color: #e6edf7 !important;
+}
+
+html.dark .el-alert--success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+html.dark .el-alert--success .el-alert__title,
+html.dark .el-alert--success .el-alert__description {
+  color: #c9ffe9;
+}
+
+html.dark .el-alert--warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+html.dark .el-alert--warning .el-alert__title,
+html.dark .el-alert--warning .el-alert__description {
+  color: #ffe7b4;
+}
+
+html.dark .el-alert--error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+html.dark .el-alert--error .el-alert__title,
+html.dark .el-alert--error .el-alert__description {
+  color: #ffd0d0;
+}
+
+/* 步骤条 Steps */
+html.dark .el-steps {
+  color: var(--text) !important;
+}
+
+html.dark .el-step__head {
+  color: var(--text) !important;
+}
+
+html.dark .el-step__title {
+  color: var(--text) !important;
+}
+
+html.dark .el-step__description {
+  color: var(--text) !important;
+}
+
+html.dark .el-step__icon {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+html.dark .el-step__icon-inner {
+  color: var(--text) !important;
+}
+
+html.dark .el-step__line {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.dark .el-step__line-inner {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.dark .el-step.is-process .el-step__icon {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: white !important;
+}
+
+html.dark .el-step.is-process .el-step__title {
+  color: var(--text) !important;
+}
+
+html.dark .el-step.is-finish .el-step__icon {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  background: transparent !important;
+}
+
+html.dark .el-step.is-finish .el-step__line {
+  background: var(--primary) !important;
+}
+
+html.dark .el-step.is-finish .el-step__line-inner {
+  background: var(--primary) !important;
+}
+
+html.dark .el-step.is-finish .el-step__title {
+  color: var(--text) !important;
+}
+
+html.dark .el-step.is-finish .el-step__description {
+  color: var(--text) !important;
+}
+
+html.dark .el-step.is-wait .el-step__icon {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: var(--muted) !important;
+  background: transparent !important;
+}
+
+html.dark .el-step.is-wait .el-step__title {
+  color: var(--muted) !important;
+}
+
+html.dark .el-step.is-wait .el-step__description {
+  color: var(--muted) !important;
+}
+
+/* 步骤条中的 code 标签 */
+html.dark .el-step__description code {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+/* 单选按钮组 Radio Group */
+html.dark .el-radio-group {
+  color: var(--text);
+}
+
+html.dark .el-radio-button__inner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+html.dark .el-radio-button__inner:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
+}
+
+html.dark .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+/* 复选框组 Checkbox Group */
+html.dark .el-checkbox-group {
+  color: var(--text);
+}
+
+html.dark .el-checkbox-button__inner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+html.dark .el-checkbox-button__inner:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
+}
+
+html.dark .el-checkbox-button.is-checked .el-checkbox-button__inner {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+/* 文本域 Textarea */
+html.dark .el-textarea__inner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+html.dark .el-textarea__inner:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+html.dark .el-textarea__inner:focus {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+html.dark .el-textarea__inner::placeholder {
+  color: var(--muted);
+}
+
+/* 输入框占位符 */
+html.dark .el-input__inner::placeholder {
+  color: var(--muted);
+}
+
+/* 对话框 Dialog */
+html.dark .el-dialog {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+html.dark .el-dialog__header {
+  border-color: var(--border);
+}
+
+html.dark .el-dialog__title {
+  color: var(--text);
+}
+
+html.dark .el-dialog__body {
+  color: var(--text);
+}
+
+html.dark .el-dialog__footer {
+  border-color: var(--border);
+}
+
+html.dark .el-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* 抽屉 Drawer */
+html.dark .el-drawer {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-drawer__header {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html.dark .el-drawer__body {
+  color: var(--text);
+}
+
+/* 加载 Loading */
+html.dark .el-loading-mask {
+  background: rgba(11, 18, 32, 0.8);
+}
+
+html.dark .el-loading-spinner .el-loading-text {
+  color: var(--text);
+}
+
+/* 通知 Notification */
+html.dark .el-notification {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+html.dark .el-notification__title {
+  color: var(--text);
+}
+
+html.dark .el-notification__content {
+  color: var(--text);
+}
+
+/* 气泡确认框 Popconfirm */
+html.dark .el-popconfirm {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-popconfirm__main {
+  color: var(--text);
+}
+
+/* 气泡提示 Popover */
+html.dark .el-popover {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .el-popover__title {
+  color: var(--text);
+}
+
+/* 工具提示 Tooltip */
+html.dark .el-tooltip__popper {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .el-tooltip__popper.is-dark {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* 面包屑 Breadcrumb */
+html.dark .el-breadcrumb {
+  color: var(--text);
+}
+
+html.dark .el-breadcrumb__item {
+  color: var(--muted);
+}
+
+html.dark .el-breadcrumb__inner {
+  color: var(--muted);
+}
+
+html.dark .el-breadcrumb__inner:hover {
+  color: var(--primary);
+}
+
+html.dark .el-breadcrumb__item:last-child .el-breadcrumb__inner {
+  color: var(--text);
+}
+
+/* 页头 PageHeader */
+html.dark .el-page-header {
+  color: var(--text);
+}
+
+html.dark .el-page-header__title {
+  color: var(--text);
+}
+
+html.dark .el-page-header__content {
+  color: var(--text);
+}
+
+/* 树形控件 Tree */
+html.dark .el-tree {
+  background: transparent;
+  color: var(--text);
+}
+
+html.dark .el-tree-node__content {
+  color: var(--text);
+}
+
+html.dark .el-tree-node__content:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html.dark .el-tree-node.is-current > .el-tree-node__content {
+  background: rgba(59, 130, 246, 0.16);
+  color: var(--text);
+}
+
+/* 穿梭框 Transfer */
+html.dark .el-transfer {
+  color: var(--text);
+}
+
+html.dark .el-transfer-panel {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-transfer-panel__header {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .el-transfer-panel__body {
+  color: var(--text);
+}
+
+html.dark .el-transfer-panel__item {
+  color: var(--text);
+}
+
+html.dark .el-transfer-panel__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 全局强制样式 - 确保所有文本可见 */
+html.dark * {
+  border-color: var(--border);
+}
+
+html.dark div,
+html.dark span,
+html.dark p,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark label {
+  color: var(--text);
+}
+
+html.dark strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+html.dark code {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 确保所有 Element Plus 组件的文本都可见 */
+html.dark [class*='el-'] {
+  color: var(--text);
+}
+
+/* 卡片头部 */
+html.dark .el-card__header {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-card__body {
+  color: var(--text) !important;
+}
+
+/* 输入框前缀和后缀图标 */
+html.dark .el-input__prefix,
+html.dark .el-input__suffix {
+  color: var(--muted);
+}
+
+html.dark .el-input__prefix-inner,
+html.dark .el-input__suffix-inner {
+  color: var(--muted);
+}
+
+/* 选择器的箭头图标 */
+html.dark .el-select__caret {
+  color: var(--muted);
+}
+
+/* 下拉菜单的空状态 */
+html.dark .el-select-dropdown__empty {
+  color: var(--muted);
+}
+
+/* 表格的固定列阴影 */
+html.dark .el-table__fixed,
+html.dark .el-table__fixed-right {
+  background: var(--surface);
+}
+
+/* 表格的展开行 */
+html.dark .el-table__expanded-cell {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+}
+
+/* 日期选择器 */
+html.dark .el-date-picker {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .el-picker-panel {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.dark .el-date-table td {
+  color: var(--text);
+}
+
+html.dark .el-date-table td.available:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--primary);
+}
+
+html.dark .el-date-table td.current {
+  background: rgba(59, 130, 246, 0.16);
+  color: var(--text);
+}
+
+/* 时间选择器面板 */
+html.dark .el-time-panel__footer {
+  border-color: var(--border);
+}
+
+html.dark .el-time-panel__btn {
+  color: var(--text);
+}
+
+html.dark .el-time-panel__btn:hover {
+  color: var(--primary);
+}
+
+/* ========================================
+   强制覆盖所有下拉框和弹出层样式
+   ======================================== */
+
+/* 下拉框弹出层 - 使用更高优先级 */
+html.dark .el-popper.is-light,
+html.dark .el-popper.is-dark,
+html.dark .el-popper {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+html.dark .el-select-dropdown,
+html.dark .el-picker-panel,
+html.dark .el-autocomplete-suggestion {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+/* 下拉框选项 */
+html.dark .el-select-dropdown__item,
+html.dark .el-dropdown-menu__item,
+html.dark .el-menu-item,
+html.dark .el-cascader-node {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+html.dark .el-select-dropdown__item:hover,
+html.dark .el-dropdown-menu__item:hover,
+html.dark .el-cascader-node:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-select-dropdown__item.is-selected {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+html.dark .el-select-dropdown__item.is-hovering {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 下拉框的空状态 */
+html.dark .el-select-dropdown__empty,
+html.dark .el-picker-panel__footer {
+  color: var(--muted) !important;
+  background: var(--surface) !important;
+}
+
+/* 选择器的输入框 */
+html.dark .el-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45) inset !important;
+}
+
+/* 下拉菜单 */
+html.dark .el-dropdown-menu {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+html.dark .el-dropdown-menu__item {
+  color: var(--text) !important;
+}
+
+html.dark .el-dropdown-menu__item:not(.is-disabled):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text) !important;
+}
+
+/* 级联选择器 */
+html.dark .el-cascader-panel {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-cascader-menu {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-cascader-node__label {
+  color: var(--text) !important;
+}
+
+/* 日期选择器面板 */
+html.dark .el-date-picker,
+html.dark .el-time-picker,
+html.dark .el-datetime-picker {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-picker-panel__body {
+  background: var(--surface) !important;
+}
+
+html.dark .el-picker-panel__content {
+  background: var(--surface) !important;
+}
+
+html.dark .el-date-table th {
+  color: var(--muted) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-date-table td {
+  color: var(--text) !important;
+}
+
+html.dark .el-date-table td.in-range div,
+html.dark .el-date-table td.in-range div:hover {
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+html.dark .el-date-table td.today span {
+  color: var(--primary) !important;
+  font-weight: 700;
+}
+
+html.dark .el-date-table td.current:not(.disabled) span {
+  background: var(--primary) !important;
+  color: white !important;
+}
+
+html.dark .el-month-table td .cell,
+html.dark .el-year-table td .cell {
+  color: var(--text) !important;
+}
+
+html.dark .el-month-table td.current:not(.disabled) .cell,
+html.dark .el-year-table td.current:not(.disabled) .cell {
+  background: var(--primary) !important;
+  color: white !important;
+}
+
+/* 时间选择器 */
+html.dark .el-time-spinner__item {
+  color: var(--text) !important;
+}
+
+html.dark .el-time-spinner__item:hover:not(.is-disabled):not(.is-active) {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .el-time-spinner__item.is-active:not(.is-disabled) {
+  color: var(--text) !important;
+  font-weight: 700;
+}
+
+/* Popper 箭头 */
+html.dark .el-popper__arrow::before {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* 确保所有弹出层都有正确的背景 */
+html.dark [role='tooltip'],
+html.dark [role='dialog'],
+html.dark [role='menu'] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+/* 虚拟滚动列表 */
+html.dark .el-select-dropdown__list {
+  background: var(--surface) !important;
+}
+
+html.dark .el-scrollbar__view {
+  background: transparent !important;
+}
+
+/* 选择器的标签（多选） */
+html.dark .el-select__tags {
+  background: transparent !important;
+}
+
+html.dark .el-select__tags .el-tag {
+  background: rgba(59, 130, 246, 0.16) !important;
+  border-color: rgba(59, 130, 246, 0.28) !important;
+  color: var(--text) !important;
+}
+
+/* 输入建议 */
+html.dark .el-autocomplete-suggestion {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-autocomplete-suggestion li {
+  color: var(--text) !important;
+}
+
+html.dark .el-autocomplete-suggestion li:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .el-autocomplete-suggestion li.is-highlighted {
+  background: rgba(59, 130, 246, 0.16) !important;
+  color: var(--text) !important;
+}
+
+/* 颜色选择器 */
+html.dark .el-color-picker__panel {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-color-dropdown__main-wrapper {
+  background: var(--surface) !important;
+}
+
+/* 滚动条样式 */
+html.dark .el-scrollbar__thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+html.dark .el-scrollbar__thumb:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 确保下拉框内的所有文本都可见 */
+html.dark .el-select-dropdown *,
+html.dark .el-dropdown-menu *,
+html.dark .el-picker-panel * {
+  color: var(--text);
+}
+
+html.dark .el-select-dropdown .el-select-dropdown__item,
+html.dark .el-dropdown-menu .el-dropdown-menu__item {
+  color: var(--text) !important;
+}
+
+/* ========================================
+   终极覆盖 - 针对所有可能的下拉框类名
+   ======================================== */
+
+/* 覆盖 body 下的所有弹出层 */
+html.dark body > .el-popper,
+html.dark body > .el-select-dropdown,
+html.dark body > .el-picker-panel,
+html.dark body > .el-dropdown-menu,
+html.dark body > .el-autocomplete-suggestion,
+html.dark body > .el-cascader-panel,
+html.dark body > div[class*='el-'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* 覆盖所有可能的选择器下拉框 */
+html.dark .el-select-dropdown.el-popper,
+html.dark .el-select-dropdown.el-popper[data-popper-placement],
+html.dark div[class*='el-select-dropdown'] {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+/* 覆盖下拉框内的所有选项 */
+html.dark .el-select-dropdown .el-select-dropdown__item,
+html.dark .el-select-dropdown__wrap .el-select-dropdown__item,
+html.dark div[class*='el-select-dropdown'] .el-select-dropdown__item {
+  background-color: transparent !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-select-dropdown .el-select-dropdown__item:hover,
+html.dark .el-select-dropdown .el-select-dropdown__item.is-hovering {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-select-dropdown .el-select-dropdown__item.is-selected {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+/* 覆盖下拉框的包裹层 */
+html.dark .el-select-dropdown__wrap,
+html.dark .el-select-dropdown__list {
+  background: transparent !important;
+}
+
+/* 覆盖 popper 的所有可能类名 */
+html.dark [class*='el-popper'][class*='select'],
+html.dark [class*='el-popper'][class*='picker'],
+html.dark [class*='el-popper'][class*='dropdown'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* 确保下拉框内的文本颜色 */
+html.dark .el-select-dropdown__item span,
+html.dark .el-select-dropdown__item div,
+html.dark .el-dropdown-menu__item span,
+html.dark .el-dropdown-menu__item div {
+  color: var(--text) !important;
+}
+
+/* 覆盖可能的白色背景 */
+html.dark [style*='background: rgb(255, 255, 255)'],
+html.dark [style*='background-color: rgb(255, 255, 255)'],
+html.dark [style*='background: white'],
+html.dark [style*='background-color: white'] {
+  background: var(--surface) !important;
+}
+
+/* 覆盖可能的黑色文字 */
+html.dark [style*='color: rgb(0, 0, 0)'],
+html.dark [style*='color: black'] {
+  color: var(--text) !important;
+}
+
+/* 特别针对 el-select-dropdown 的所有状态 */
+html.dark .el-select-dropdown.is-multiple .el-select-dropdown__item {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+html.dark .el-select-dropdown.is-multiple .el-select-dropdown__item.is-selected {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: var(--text) !important;
+}
+
+/* 覆盖下拉框的空状态 */
+html.dark .el-select-dropdown__empty {
+  background: var(--surface) !important;
+  color: var(--muted) !important;
+}
+
+/* 覆盖分组标题 */
+html.dark .el-select-group__title {
+  color: var(--muted) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+html.dark .el-select-group__wrap {
+  background: transparent !important;
+}
+
+/* 覆盖虚拟滚动 */
+html.dark .el-select-dropdown .el-scrollbar__view {
+  background: transparent !important;
+}
+
+html.dark .el-select-dropdown .el-scrollbar__wrap {
+  background: transparent !important;
+}
+
+/* 覆盖所有可能挂载到 body 的弹出层 */
+html.dark body > div[role='tooltip'],
+html.dark body > div[role='dialog'],
+html.dark body > div[role='menu'],
+html.dark body > div[aria-hidden='false'] {
+  background: var(--surface) !important;
+}
+
+/* 确保所有 el- 开头的类都有正确的颜色 */
+html.dark [class^='el-'],
+html.dark [class*=' el-'] {
+  border-color: var(--border);
+}
+
+/* 覆盖可能的内联样式 - 最高优先级 */
+html.dark .el-select-dropdown[style],
+html.dark .el-select-dropdown__item[style] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+/* ========================================
+   最激进的覆盖 - 使用属性选择器
+   ======================================== */
+
+/* 覆盖所有包含 select-dropdown 的元素 */
+html.dark [class*='select-dropdown'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark [class*='select-dropdown'] [class*='item'] {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+html.dark [class*='select-dropdown'] [class*='item']:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 覆盖所有包含 dropdown 的元素 */
+html.dark [class*='dropdown'][class*='el-'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* 覆盖所有包含 picker 的元素 */
+html.dark [class*='picker'][class*='el-'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* 覆盖所有包含 popper 的元素 */
+html.dark [class*='popper'][class*='el-'] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* 覆盖所有可能的白色背景 - 使用属性选择器 */
+html.dark div[class*='el-'][class*='dropdown'],
+html.dark div[class*='el-'][class*='select'],
+html.dark div[class*='el-'][class*='picker'],
+html.dark div[class*='el-'][class*='menu'] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+/* 覆盖所有选项元素 */
+html.dark li[class*='el-'][class*='item'],
+html.dark div[class*='el-'][class*='item'] {
+  color: var(--text) !important;
+}
+
+/* 确保所有弹出层都有暗色背景 */
+html.dark body > div[class*='el-'] {
+  background: var(--surface) !important;
+}
+
+html.dark body > div[class*='el-'] * {
+  color: var(--text);
+}
+
+/* 覆盖 Element Plus 可能的默认样式 */
+html.dark .el-popper.is-light .el-popper__arrow::before {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+html.dark .el-popper.is-dark .el-popper__arrow::before {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* 强制覆盖所有可能的弹出层背景 */
+html.dark [data-popper-placement] {
+  background: var(--surface) !important;
+}
+
+html.dark [data-popper-placement] * {
+  color: var(--text);
+}
+
+/* 覆盖可能的 z-index 层级问题 */
+html.dark .el-select-dropdown,
+html.dark .el-picker-panel,
+html.dark .el-dropdown-menu {
+  z-index: 9999 !important;
+}
+
+/* ========================================
+   自定义 Popper 类 - 用于组件的 popper-class 属性
+   ======================================== */
+
+/* 暗色下拉框类 */
+.dark-popper,
+.dark-dropdown,
+.dark-select-dropdown {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.dark-popper .el-select-dropdown__item,
+.dark-dropdown .el-dropdown-menu__item,
+.dark-select-dropdown .el-select-dropdown__item {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.dark-popper .el-select-dropdown__item:hover,
+.dark-dropdown .el-dropdown-menu__item:hover,
+.dark-select-dropdown .el-select-dropdown__item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark-popper .el-select-dropdown__item.is-selected,
+.dark-select-dropdown .el-select-dropdown__item.is-selected {
+  background: rgba(59, 130, 246, 0.2) !important;
+  font-weight: 600;
+}
+
+/* 确保在暗色模式下，所有 Element Plus 的弹出层都使用暗色主题 */
+html.dark {
+  /* Element Plus CSS 变量覆盖 */
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--surface);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--muted);
+  --el-text-color-placeholder: var(--muted);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-extra-light: var(--border);
+  --el-fill-color-blank: transparent;
+  --el-fill-color: rgba(255, 255, 255, 0.04);
+  --el-fill-color-light: rgba(255, 255, 255, 0.02);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.01);
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.01);
+  --el-fill-color-dark: rgba(255, 255, 255, 0.08);
+  --el-fill-color-darker: rgba(255, 255, 255, 0.12);
+  --el-color-primary: var(--primary);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--error);
+  --el-color-error: var(--error);
+  --el-color-info: var(--muted);
+  --el-box-shadow: var(--shadow);
+  --el-box-shadow-light: var(--shadow);
+  --el-box-shadow-lighter: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --el-box-shadow-dark: var(--shadow);
+  --el-disabled-bg-color: rgba(255, 255, 255, 0.02);
+  --el-disabled-text-color: var(--muted);
+  --el-disabled-border-color: var(--border);
+  --el-overlay-color: rgba(0, 0, 0, 0.7);
+  --el-overlay-color-light: rgba(0, 0, 0, 0.5);
+  --el-overlay-color-lighter: rgba(0, 0, 0, 0.3);
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+}

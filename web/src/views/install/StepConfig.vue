@@ -1,0 +1,102 @@
+<!--
+  步骤 1: 配置参数
+-->
+<template>
+  <el-card class="step-card">
+    <template #header>
+      <span>安装配置</span>
+    </template>
+    <el-form :model="form" label-width="140px">
+      <!-- 基础配置 -->
+      <div class="form-section">
+        <h3>基础配置</h3>
+        <el-form-item label="SeaTunnel 版本">
+          <el-select v-model="form.version" style="width: 300px">
+            <el-option label="2.3.12" value="2.3.12" />
+            <el-option label="2.3.11" value="2.3.11" />
+            <el-option label="2.3.10" value="2.3.10" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="安装模式">
+          <el-radio-group v-model="form.installMode">
+            <el-radio label="online">在线安装</el-radio>
+            <el-radio label="offline">离线安装</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="安装目录">
+          <el-input v-model="form.baseDir" style="width: 500px" />
+        </el-form-item>
+      </div>
+
+      <!-- 部署配置 -->
+      <div class="form-section">
+        <h3>部署配置</h3>
+        <el-form-item label="部署模式">
+          <el-radio-group v-model="form.deployMode">
+            <el-radio label="separated">分离模式</el-radio>
+            <el-radio label="hybrid">混合模式</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <template v-if="form.deployMode === 'separated'">
+          <el-form-item label="Master IP">
+            <el-input v-model="form.masterIp" style="width: 300px" />
+          </el-form-item>
+          <el-form-item label="Worker IPs">
+            <el-input v-model="form.workerIps" style="width: 500px" />
+          </el-form-item>
+        </template>
+        <template v-else>
+          <el-form-item label="集群节点">
+            <el-input v-model="form.clusterNodes" style="width: 500px" />
+          </el-form-item>
+        </template>
+      </div>
+    </el-form>
+
+    <div class="step-actions">
+      <el-button type="primary" @click="handleNext">下一步</el-button>
+    </div>
+  </el-card>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+
+const emit = defineEmits(['next'])
+
+const form = ref({
+  version: '2.3.12',
+  installMode: 'online',
+  baseDir: '/home/seatunnel/seatunnel-package',
+  deployMode: 'separated',
+  masterIp: '',
+  workerIps: '',
+  clusterNodes: ''
+})
+
+const handleNext = () => {
+  emit('next')
+}
+</script>
+
+<style scoped>
+.step-card {
+  margin-bottom: 20px;
+}
+
+.form-section {
+  margin-bottom: 30px;
+}
+
+.form-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.step-actions {
+  margin-top: 30px;
+  text-align: right;
+}
+</style>

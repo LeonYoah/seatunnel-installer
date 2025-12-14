@@ -188,9 +188,40 @@ CLI:  ./install_seatunnel.sh --help
 
 示例界面截图：
 
-![SeaTunnel Web 安装向导](image/install01.png)
+![安装向导](image/安装向导.png)
 
 > 提示：Web 安装向导本质上还是调用同一个 `install_seatunnel.sh`，只是通过页面帮你编辑 `config.properties` 并按步骤执行。
+
+---
+
+## Web 控制台功能预览
+
+安装完成后，可以通过 Web 控制台管理 SeaTunnel 集群。控制台提供了丰富的功能模块：
+
+### 总览 Dashboard
+实时监控集群健康状态、任务执行情况、性能指标和告警信息。
+
+![总览](image/总览.png)
+
+### 集群管理
+查看和管理集群节点，监控资源使用情况，支持节点扩缩容操作。
+
+![集群管理](image/集群管理.png)
+
+### 插件市场
+浏览、安装和管理 SeaTunnel 连接器插件，支持 Source、Sink、Transform 等多种类型。
+
+![插件市场](image/插件市场.png)
+
+### 诊断中心
+一键收集诊断信息，快速定位和解决集群问题，提供常见故障解决方案。
+
+![诊断中心](image/诊断中心.png)
+
+### 系统设置
+配置通知渠道、系统参数、用户权限和审计日志等。
+
+![设置](image/设置.png)
 
 ---
 

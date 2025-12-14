@@ -1,0 +1,21 @@
+/**
+ * 应用入口文件
+ */
+import { createApp } from 'vue'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import './styles/theme.css'
+import './style.css'
+import App from './App.vue'
+import router from './router'
+import pinia from './stores'
+
+const app = createApp(App)
+
+// 注册插件
+app.use(router)
+app.use(pinia)
+app.use(ElementPlus)
+
+// 挂载应用
+app.mount('#app')
