@@ -18,43 +18,43 @@ var (
 	loggerMutex      sync.RWMutex
 )
 
-// Config holds logger configuration
+// Config 日志配置结构体
 type Config struct {
-	Level      string // Log level: debug, info, warn, error, fatal
-	OutputPath string // File path for log output (empty for console only)
-	MaxSize    int    // Maximum size in megabytes before rotation
-	MaxBackups int    // Maximum number of old log files to retain
-	MaxAge     int    // Maximum number of days to retain old log files
-	Compress   bool   // Whether to compress rotated log files
-	Console    bool   // Whether to output to console
+	Level      string // 日志级别: debug, info, warn, error, fatal
+	OutputPath string // 日志文件路径（为空则仅输出到控制台）
+	MaxSize    int    // 日志文件最大大小（MB），超过后自动轮转
+	MaxBackups int    // 保留的旧日志文件最大数量
+	MaxAge     int    // 保留旧日志文件的最大天数
+	Compress   bool   // 是否压缩轮转的日志文件
+	Console    bool   // 是否输出到控制台
 }
 
-// DefaultConfig returns a default logger configuration
+// DefaultConfig 返回默认的日志配置
 func DefaultConfig() *Config {
 	return &Config{
 		Level:      "info",
 		OutputPath: "",
 		MaxSize:    100,  // 100 MB
-		MaxBackups: 3,    // Keep 3 old files
-		MaxAge:     28,   // Keep for 28 days
-		Compress:   true, // Compress old files
-		Console:    true, // Output to console
+		MaxBackups: 3,    // 保留3个旧文件
+		MaxAge:     28,   // 保留28天
+		Compress:   true, // 压缩旧文件
+		Console:    true, // 输出到控制台
 	}
 }
 
-// Init initializes the global logger with the given configuration
+// Init 使用给定的配置初始化全局日志器
 func Init(config *Config) error {
 	if config == nil {
 		config = DefaultConfig()
 	}
 
-	// Parse log level
+	// 解析日志级别
 	var level zapcore.Level
 	if err := level.UnmarshalText([]byte(config.Level)); err != nil {
 		level = zapcore.InfoLevel
 	}
 
-	// Create encoder config
+	// 创建编码器配置
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -70,15 +70,15 @@ func Init(config *Config) error {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	// Create cores for different outputs
+	// 为不同的输出创建cores
 	var cores []zapcore.Core
 
-	// File output with rotation using lumberjack
+	// 使用lumberjack实现文件输出和轮转
 	if config.OutputPath != "" {
-		// Ensure directory exists
+		// 确保目录存在
 		dir := filepath.Dir(config.OutputPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create log directory: %w", err)
+			return fmt.Errorf("创建日志目录失败: %w", err)
 		}
 
 		fileWriter := &lumberjack.Logger{
@@ -89,12 +89,12 @@ func Init(config *Config) error {
 			Compress:   config.Compress,
 		}
 
-		// Store the file writer for later closing
+		// 保存文件写入器以便后续关闭
 		loggerMutex.Lock()
 		fileWriterCloser = fileWriter
 		loggerMutex.Unlock()
 
-		// Use JSON encoder for file output (no color codes)
+		// 文件输出使用JSON编码器（无颜色代码）
 		fileEncoderConfig := encoderConfig
 		fileEncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 		fileCore := zapcore.NewCore(
@@ -105,7 +105,7 @@ func Init(config *Config) error {
 		cores = append(cores, fileCore)
 	}
 
-	// Console output
+	// 控制台输出
 	if config.Console {
 		consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
 		consoleCore := zapcore.NewCore(
@@ -116,7 +116,7 @@ func Init(config *Config) error {
 		cores = append(cores, consoleCore)
 	}
 
-	// If no output is configured, default to console
+	// 如果没有配置输出，默认输出到控制台
 	if len(cores) == 0 {
 		consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
 		consoleCore := zapcore.NewCore(
@@ -127,7 +127,7 @@ func Init(config *Config) error {
 		cores = append(cores, consoleCore)
 	}
 
-	// Create logger with multiple cores
+	// 使用多个cores创建日志器
 	core := zapcore.NewTee(cores...)
 	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 
@@ -138,7 +138,7 @@ func Init(config *Config) error {
 	return nil
 }
 
-// InitSimple initializes the logger with simple parameters (backward compatibility)
+// InitSimple 使用简单参数初始化日志器（向后兼容）
 func InitSimple(level string, outputPaths []string) error {
 	config := DefaultConfig()
 	config.Level = level
@@ -148,44 +148,44 @@ func InitSimple(level string, outputPaths []string) error {
 	return Init(config)
 }
 
-// Get returns the global logger
+// Get 返回全局日志器
 func Get() *zap.Logger {
 	loggerMutex.RLock()
 	defer loggerMutex.RUnlock()
 
 	if globalLogger == nil {
-		// Initialize with default config if not initialized
+		// 如果未初始化，使用默认配置初始化
 		globalLogger, _ = zap.NewProduction()
 	}
 	return globalLogger
 }
 
-// Info logs an info message
+// Info 记录info级别的日志
 func Info(msg string, fields ...zap.Field) {
 	Get().Info(msg, fields...)
 }
 
-// Error logs an error message
+// Error 记录error级别的日志
 func Error(msg string, fields ...zap.Field) {
 	Get().Error(msg, fields...)
 }
 
-// Warn logs a warning message
+// Warn 记录warn级别的日志
 func Warn(msg string, fields ...zap.Field) {
 	Get().Warn(msg, fields...)
 }
 
-// Debug logs a debug message
+// Debug 记录debug级别的日志
 func Debug(msg string, fields ...zap.Field) {
 	Get().Debug(msg, fields...)
 }
 
-// Fatal logs a fatal message and exits
+// Fatal 记录fatal级别的日志并退出程序
 func Fatal(msg string, fields ...zap.Field) {
 	Get().Fatal(msg, fields...)
 }
 
-// Sync flushes any buffered log entries
+// Sync 刷新所有缓冲的日志条目
 func Sync() error {
 	loggerMutex.RLock()
 	defer loggerMutex.RUnlock()
@@ -196,7 +196,7 @@ func Sync() error {
 	return nil
 }
 
-// Close closes the logger and releases resources
+// Close 关闭日志器并释放资源
 func Close() error {
 	loggerMutex.Lock()
 	defer loggerMutex.Unlock()
@@ -207,7 +207,7 @@ func Close() error {
 		globalLogger = nil
 	}
 
-	// Close the file writer if it exists
+	// 如果文件写入器存在，关闭它
 	if fileWriterCloser != nil {
 		if closeErr := fileWriterCloser.Close(); closeErr != nil && err == nil {
 			err = closeErr

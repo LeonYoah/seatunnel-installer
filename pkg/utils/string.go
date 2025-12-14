@@ -9,42 +9,42 @@ import (
 	"strings"
 )
 
-// IsEmpty checks if a string is empty or contains only whitespace
+// IsEmpty 检查字符串是否为空或仅包含空白字符
 func IsEmpty(s string) bool {
 	return strings.TrimSpace(s) == ""
 }
 
-// IsNotEmpty checks if a string is not empty
+// IsNotEmpty 检查字符串是否非空
 func IsNotEmpty(s string) bool {
 	return !IsEmpty(s)
 }
 
-// TrimAll trims all whitespace from a string
+// TrimAll 去除字符串的所有空白字符
 func TrimAll(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// Contains checks if a string contains a substring (case-insensitive)
+// ContainsIgnoreCase 检查字符串是否包含子串（忽略大小写）
 func ContainsIgnoreCase(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
-// EqualIgnoreCase compares two strings ignoring case
+// EqualIgnoreCase 比较两个字符串是否相等（忽略大小写）
 func EqualIgnoreCase(s1, s2 string) bool {
 	return strings.EqualFold(s1, s2)
 }
 
-// SplitLines splits a string into lines
+// SplitLines 将字符串分割为多行
 func SplitLines(s string) []string {
 	return strings.Split(s, "\n")
 }
 
-// JoinLines joins lines into a single string
+// JoinLines 将多行合并为单个字符串
 func JoinLines(lines []string) string {
 	return strings.Join(lines, "\n")
 }
 
-// RemoveEmptyLines removes empty lines from a slice of strings
+// RemoveEmptyLines 从字符串切片中移除空行
 func RemoveEmptyLines(lines []string) []string {
 	result := make([]string, 0, len(lines))
 	for _, line := range lines {
@@ -55,7 +55,7 @@ func RemoveEmptyLines(lines []string) []string {
 	return result
 }
 
-// Truncate truncates a string to a maximum length
+// Truncate 截断字符串到最大长度
 func Truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -63,7 +63,7 @@ func Truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-// PadLeft pads a string on the left with a character to reach a minimum length
+// PadLeft 在字符串左侧填充字符以达到最小长度
 func PadLeft(s string, length int, pad rune) string {
 	if len(s) >= length {
 		return s
@@ -71,7 +71,7 @@ func PadLeft(s string, length int, pad rune) string {
 	return strings.Repeat(string(pad), length-len(s)) + s
 }
 
-// PadRight pads a string on the right with a character to reach a minimum length
+// PadRight 在字符串右侧填充字符以达到最小长度
 func PadRight(s string, length int, pad rune) string {
 	if len(s) >= length {
 		return s
@@ -79,28 +79,29 @@ func PadRight(s string, length int, pad rune) string {
 	return s + strings.Repeat(string(pad), length-len(s))
 }
 
-// MD5Hash returns the MD5 hash of a string
+// MD5Hash 返回字符串的MD5哈希值
 func MD5Hash(s string) string {
 	hash := md5.Sum([]byte(s))
 	return hex.EncodeToString(hash[:])
 }
 
-// SHA256Hash returns the SHA256 hash of a string
+// SHA256Hash 返回字符串的SHA256哈希值
 func SHA256Hash(s string) string {
 	hash := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(hash[:])
 }
 
-// IsValidIP checks if a string is a valid IP address (IPv4 or IPv6)
+// IsValidIP 检查字符串是否为有效的IP地址（IPv4或IPv6）
 func IsValidIP(ip string) bool {
-	// Simple regex for IPv4
+	// IPv4的简单正则表达式
 	ipv4Pattern := `^(\d{1,3}\.){3}\d{1,3}$`
+
 	matched, _ := regexp.MatchString(ipv4Pattern, ip)
 	if !matched {
 		return false
 	}
 
-	// Validate each octet
+	// 验证每个八位组
 	parts := strings.Split(ip, ".")
 	for _, part := range parts {
 		var num int
@@ -115,17 +116,17 @@ func IsValidIP(ip string) bool {
 	return true
 }
 
-// IsValidPort checks if a port number is valid (1-65535)
+// IsValidPort 检查端口号是否有效（1-65535）
 func IsValidPort(port int) bool {
 	return port > 0 && port <= 65535
 }
 
-// IsValidPath checks if a string is a valid file path
+// IsValidPath 检查字符串是否为有效的文件路径
 func IsValidPath(path string) bool {
 	if IsEmpty(path) {
 		return false
 	}
-	// Check for invalid characters (basic check)
+	// 检查无效字符（基本检查）
 	invalidChars := []string{"\x00", "\n", "\r"}
 	for _, char := range invalidChars {
 		if strings.Contains(path, char) {
@@ -135,22 +136,22 @@ func IsValidPath(path string) bool {
 	return true
 }
 
-// SanitizePath removes potentially dangerous characters from a path
+// SanitizePath 从路径中移除潜在危险字符
 func SanitizePath(path string) string {
-	// Remove null bytes and newlines
+	// 移除空字节和换行符
 	path = strings.ReplaceAll(path, "\x00", "")
 	path = strings.ReplaceAll(path, "\n", "")
 	path = strings.ReplaceAll(path, "\r", "")
 	return path
 }
 
-// ExtractVariables extracts variables from a template string
-// Supports ${VAR} and {{VAR}} formats
+// ExtractVariables 从模板字符串中提取变量
+// 支持 ${VAR} 和 {{VAR}} 格式
 func ExtractVariables(template string) []string {
 	var vars []string
 	seen := make(map[string]bool)
 
-	// Extract ${VAR} format
+	// 提取 ${VAR} 格式
 	re1 := regexp.MustCompile(`\$\{([^}]+)\}`)
 	matches1 := re1.FindAllStringSubmatch(template, -1)
 	for _, match := range matches1 {
@@ -160,7 +161,7 @@ func ExtractVariables(template string) []string {
 		}
 	}
 
-	// Extract {{VAR}} format
+	// 提取 {{VAR}} 格式
 	re2 := regexp.MustCompile(`\{\{([^}]+)\}\}`)
 	matches2 := re2.FindAllStringSubmatch(template, -1)
 	for _, match := range matches2 {
@@ -173,7 +174,7 @@ func ExtractVariables(template string) []string {
 	return vars
 }
 
-// ReplaceMultiple replaces multiple substrings in a string
+// ReplaceMultiple 替换字符串中的多个子串
 func ReplaceMultiple(s string, replacements map[string]string) string {
 	result := s
 	for old, new := range replacements {
@@ -182,7 +183,7 @@ func ReplaceMultiple(s string, replacements map[string]string) string {
 	return result
 }
 
-// IndentLines indents each line of a string with the given prefix
+// IndentLines 为字符串的每一行添加给定的缩进前缀
 func IndentLines(s string, indent string) string {
 	lines := SplitLines(s)
 	for i, line := range lines {
@@ -193,12 +194,12 @@ func IndentLines(s string, indent string) string {
 	return JoinLines(lines)
 }
 
-// RemoveComments removes shell-style comments from a string
+// RemoveComments 从字符串中移除shell风格的注释
 func RemoveComments(s string) string {
 	lines := SplitLines(s)
 	result := make([]string, 0, len(lines))
 	for _, line := range lines {
-		// Find comment start
+		// 查找注释开始位置
 		if idx := strings.Index(line, "#"); idx >= 0 {
 			line = line[:idx]
 		}
@@ -210,7 +211,7 @@ func RemoveComments(s string) string {
 	return JoinLines(result)
 }
 
-// ParseKeyValue parses a key=value string
+// ParseKeyValue 解析 key=value 字符串
 func ParseKeyValue(s string) (key, value string, ok bool) {
 	parts := strings.SplitN(s, "=", 2)
 	if len(parts) != 2 {
@@ -219,7 +220,7 @@ func ParseKeyValue(s string) (key, value string, ok bool) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), true
 }
 
-// ParseKeyValueMap parses multiple key=value lines into a map
+// ParseKeyValueMap 将多行 key=value 解析为map
 func ParseKeyValueMap(s string) map[string]string {
 	result := make(map[string]string)
 	lines := SplitLines(s)

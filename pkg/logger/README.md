@@ -1,6 +1,6 @@
 # 日志包
 
-SeaTunnel 企业级平台的生产级日志框架，基于 Uber 的 Zap 日志库构建，支持自动日志轮转。
+SeaTunnel 企业级管理平台的生产级日志框架，基于 Uber 的 Zap 日志库构建，支持自动日志轮转。
 
 ## 特性
 
@@ -13,7 +13,7 @@ SeaTunnel 企业级平台的生产级日志框架，基于 Uber 的 Zap 日志�
 
 ## 安装
 
-日志包是 SeaTunnel 企业级平台的一部分，需要以下依赖：
+日志包是 SeaTunnel 企业级管理平台的一部分，需要以下依赖：
 
 ```bash
 go get go.uber.org/zap
