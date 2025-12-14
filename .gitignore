@@ -56,3 +56,16 @@ web/.output/
 tmp/
 temp/
 *.tmp
+
+
+# Editor
+.kiro/
+.augment/
+.windsurf/
+.cline/
+.klio/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
