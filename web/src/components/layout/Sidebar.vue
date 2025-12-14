@@ -14,9 +14,13 @@
         <el-icon><Odometer /></el-icon>
         <template #title>总览</template>
       </el-menu-item>
-      <el-menu-item index="/install">
+      <el-menu-item index="/hosts">
+        <el-icon><Monitor /></el-icon>
+        <template #title>主机管理</template>
+      </el-menu-item>
+      <el-menu-item index="/deploy">
         <el-icon><Download /></el-icon>
-        <template #title>安装向导</template>
+        <template #title>部署集群</template>
       </el-menu-item>
       <el-menu-item index="/tasks">
         <el-icon><List /></el-icon>
@@ -56,6 +60,7 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   Odometer,
+  Monitor,
   Download,
   List,
   Connection,

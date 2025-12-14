@@ -17,10 +17,16 @@ const routes = [
     meta: { title: '总览' }
   },
   {
-    path: '/install',
-    name: 'Install',
-    component: () => import('@/views/Install.vue'),
-    meta: { title: '安装向导' }
+    path: '/hosts',
+    name: 'Hosts',
+    component: () => import('@/views/Hosts.vue'),
+    meta: { title: '主机管理' }
+  },
+  {
+    path: '/deploy',
+    name: 'Deploy',
+    component: () => import('@/views/Deploy.vue'),
+    meta: { title: '部署集群' }
   },
   {
     path: '/tasks',

@@ -1,0 +1,486 @@
+/**
+ * 主题变量定义
+ * 参考 www/console/css/console.css 的暗色主题
+ */
+
+/* ========================================
+   明亮模式（默认）
+   ======================================== */
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e4e7ed;
+  --text: #303133;
+  --muted: #909399;
+  --primary: #409eff;
+  --primary-2: #337ecc;
+  --success: #67c23a;
+  --warning: #e6a23c;
+  --error: #f56c6c;
+  --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* ========================================
+   暗色模式
+   ======================================== */
+html.dark {
+  // 基础颜色变量
+  --bg: #0b1220;
+  --surface: #0f1b31;
+  --surface-2: #122243;
+  --border: #1f325a;
+  --text: #e6edf7;
+  --muted: #9fb2d1;
+  --primary: #3b82f6;
+  --primary-2: #2563eb;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  // Element Plus CSS 变量覆盖
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--surface);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--muted);
+  --el-text-color-placeholder: var(--muted);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-extra-light: var(--border);
+  --el-fill-color-blank: transparent;
+  --el-fill-color: rgba(255, 255, 255, 0.04);
+  --el-fill-color-light: rgba(255, 255, 255, 0.02);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.01);
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.01);
+  --el-fill-color-dark: rgba(255, 255, 255, 0.08);
+  --el-fill-color-darker: rgba(255, 255, 255, 0.12);
+  --el-color-primary: var(--primary);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--error);
+  --el-color-error: var(--error);
+  --el-color-info: var(--muted);
+  --el-box-shadow: var(--shadow);
+  --el-box-shadow-light: var(--shadow);
+  --el-box-shadow-lighter: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --el-box-shadow-dark: var(--shadow);
+  --el-disabled-bg-color: rgba(255, 255, 255, 0.02);
+  --el-disabled-text-color: var(--muted);
+  --el-disabled-border-color: var(--border);
+  --el-overlay-color: rgba(0, 0, 0, 0.7);
+  --el-overlay-color-light: rgba(0, 0, 0, 0.5);
+  --el-overlay-color-lighter: rgba(0, 0, 0, 0.3);
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+
+  // 暗色模式背景渐变
+  body {
+    background: radial-gradient(900px 500px at 0% 0%, rgba(59, 130, 246, 0.18), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(16, 185, 129, 0.12), transparent 60%), var(--bg);
+  }
+
+  /* ========================================
+     Element Plus 组件暗色主题
+     ======================================== */
+
+  // 卡片
+  .el-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)) !important;
+    border-color: var(--border) !important;
+    box-shadow: var(--shadow) !important;
+
+    &__header {
+      background: rgba(255, 255, 255, 0.02) !important;
+      border-color: var(--border) !important;
+      color: var(--text) !important;
+    }
+  }
+
+  // 按钮
+  .el-button {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    &--primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+
+      &:hover {
+        background: var(--primary-2);
+        border-color: var(--primary-2);
+      }
+    }
+  }
+
+  // 输入框
+  .el-input {
+    &__wrapper {
+      background: rgba(255, 255, 255, 0.04) !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+      box-shadow: none !important;
+
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.15) !important;
+      }
+
+      &.is-focus {
+        border-color: rgba(59, 130, 246, 0.45) !important;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
+      }
+    }
+
+    &__inner {
+      color: var(--text) !important;
+
+      &::placeholder {
+        color: var(--muted);
+      }
+    }
+  }
+
+  // 下拉框和弹出层
+  .el-select-dropdown,
+  .el-picker-panel,
+  .el-dropdown-menu,
+  .el-popper {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    box-shadow: var(--shadow) !important;
+  }
+
+  .el-select-dropdown__item,
+  .el-dropdown-menu__item {
+    color: var(--text) !important;
+    background: transparent !important;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    &.is-selected {
+      background: rgba(59, 130, 246, 0.2) !important;
+      font-weight: 600;
+    }
+  }
+
+  // 表格
+  .el-table {
+    background: transparent;
+    color: var(--text);
+
+    th.el-table__cell {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      border-color: var(--border);
+    }
+
+    td.el-table__cell {
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    &__body tr:hover > td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+  }
+
+  // 标签
+  .el-tag {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+
+    &--primary {
+      background: rgba(59, 130, 246, 0.16);
+      border-color: rgba(59, 130, 246, 0.28);
+      color: #cfe1ff;
+    }
+
+    &--success {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.28);
+      color: #c9ffe9;
+    }
+
+    &--warning {
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #ffe7b4;
+    }
+
+    &--danger {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #ffd0d0;
+    }
+  }
+
+  // 菜单
+  .el-menu {
+    background: transparent;
+    border-color: var(--border);
+
+    &-item {
+      color: var(--muted);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      &.is-active {
+        background: rgba(59, 130, 246, 0.16);
+        border-color: rgba(59, 130, 246, 0.28);
+        color: var(--text);
+      }
+    }
+  }
+
+  // 折叠面板
+  .el-collapse {
+    border-color: var(--border);
+
+    &-item {
+      &__header {
+        background: rgba(255, 255, 255, 0.02);
+        border-color: var(--border);
+        color: var(--text);
+      }
+
+      &__wrap {
+        background: transparent;
+        border-color: var(--border);
+      }
+    }
+  }
+
+  // 复选框和单选框
+  .el-checkbox,
+  .el-radio {
+    &__label {
+      color: var(--text);
+    }
+
+    &__inner {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &__input.is-checked &__inner {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+  }
+
+  // 开关
+  .el-switch {
+    &__core {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &.is-checked &__core {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+  }
+
+  // 分页
+  .el-pagination {
+    color: var(--text);
+
+    button,
+    .el-pager li {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.1);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--primary);
+      }
+    }
+
+    .el-pager li.is-active {
+      background: rgba(59, 130, 246, 0.16);
+      color: var(--text);
+      border-color: rgba(59, 130, 246, 0.28);
+    }
+  }
+
+  // 描述列表
+  .el-descriptions {
+    &__label {
+      background: rgba(255, 255, 255, 0.05) !important;
+      color: var(--text) !important;
+      font-weight: 600;
+    }
+
+    &__content {
+      background: rgba(255, 255, 255, 0.02) !important;
+      color: var(--text) !important;
+    }
+
+    &__cell {
+      border-color: var(--border) !important;
+    }
+  }
+
+  // 警告框
+  .el-alert {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+
+    &--info {
+      background: rgba(59, 130, 246, 0.15) !important;
+      border-color: rgba(59, 130, 246, 0.3) !important;
+
+      * {
+        color: var(--text) !important;
+      }
+    }
+  }
+
+  // 步骤条
+  .el-step {
+    &__title,
+    &__description {
+      color: var(--text) !important;
+    }
+
+    &__icon {
+      border-color: rgba(255, 255, 255, 0.2) !important;
+      color: var(--text) !important;
+      background: transparent !important;
+    }
+
+    &__line {
+      background: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    &.is-process &__icon {
+      background: var(--primary) !important;
+      border-color: var(--primary) !important;
+      color: white !important;
+    }
+
+    &.is-finish {
+      .el-step__icon {
+        border-color: var(--primary) !important;
+        color: var(--primary) !important;
+      }
+
+      .el-step__line {
+        background: var(--primary) !important;
+      }
+    }
+
+    &.is-wait {
+      .el-step__title,
+      .el-step__description {
+        color: var(--muted) !important;
+      }
+    }
+  }
+
+  // 对话框和抽屉
+  .el-dialog,
+  .el-drawer {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow);
+
+    &__title,
+    &__header {
+      color: var(--text);
+    }
+  }
+
+  .el-overlay {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  // 消息和通知
+  .el-message,
+  .el-notification {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow);
+
+    &__content {
+      color: var(--text);
+    }
+  }
+
+  // 链接
+  .el-link {
+    color: var(--primary);
+
+    &:hover {
+      color: var(--primary-2);
+    }
+  }
+
+  // 表单
+  .el-form-item {
+    &__label {
+      color: var(--text);
+    }
+
+    &__error {
+      color: var(--error);
+    }
+  }
+
+  // 空状态
+  .el-empty {
+    color: var(--muted);
+  }
+
+  // 进度条
+  .el-progress {
+    &__text {
+      color: var(--text);
+    }
+
+    &-bar__outer {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  // 滚动条
+  .el-scrollbar__thumb {
+    background: rgba(255, 255, 255, 0.2) !important;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3) !important;
+    }
+  }
+
+  /* ========================================
+     全局文本和代码样式
+     ======================================== */
+  code {
+    background: var(--surface-2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+}
