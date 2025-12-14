@@ -18,4 +18,7 @@ require (
 	gorm.io/gorm v1.25.5
 )
 
-require go.uber.org/multierr v1.10.0 // indirect
+require (
+	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+)
