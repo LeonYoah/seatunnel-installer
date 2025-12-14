@@ -1,6 +1,58 @@
-./seatunnel-install-log-root
-install.log
-temp.*
-.install*
-.step*
-.web*
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration (sensitive)
+config.local.yaml
+*.env
+
+# Build artifacts
+dist/
+build/
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.nuxt/
+web/.output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
