@@ -8,27 +8,27 @@
       <el-col :xs="24" :md="12">
         <el-card>
           <template #header>
-            <span>通知渠道</span>
+            <span>{{ t('settings.notify.title') }}</span>
           </template>
           <el-form :model="notifyForm" label-width="120px">
-            <el-form-item label="钉钉 Webhook">
+            <el-form-item :label="t('settings.notify.dingWebhook')">
               <el-input
                 v-model="notifyForm.dingding"
                 placeholder="https://oapi.dingtalk.com/robot/send?access_token=..."
               />
             </el-form-item>
-            <el-form-item label="企微 Webhook">
+            <el-form-item :label="t('settings.notify.wecomWebhook')">
               <el-input
                 v-model="notifyForm.wecom"
                 placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
               />
             </el-form-item>
-            <el-form-item label="邮件接收人">
+            <el-form-item :label="t('settings.notify.email')">
               <el-input v-model="notifyForm.email" placeholder="ops@example.com" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSaveNotify">保存</el-button>
-              <el-button @click="handleTestNotify">发送测试</el-button>
+              <el-button type="primary" @click="handleSaveNotify">{{ t('common.save') }}</el-button>
+              <el-button @click="handleTestNotify">{{ t('settings.notify.sendTest') }}</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -38,34 +38,34 @@
       <el-col :xs="24" :md="12">
         <el-card>
           <template #header>
-            <span>系统配置</span>
+            <span>{{ t('settings.system.title') }}</span>
           </template>
           <el-form :model="systemForm" label-width="120px">
-            <el-form-item label="心跳超时">
+            <el-form-item :label="t('settings.system.heartbeatTimeout')">
               <el-input-number
                 v-model="systemForm.heartbeatTimeout"
                 :min="10"
                 :max="300"
                 :step="10"
               />
-              <span style="margin-left: 8px">秒</span>
+              <span style="margin-left: 8px">{{ t('settings.system.seconds') }}</span>
             </el-form-item>
-            <el-form-item label="日志保留天数">
+            <el-form-item :label="t('settings.system.logRetention')">
               <el-input-number v-model="systemForm.logRetention" :min="1" :max="365" />
-              <span style="margin-left: 8px">天</span>
+              <span style="margin-left: 8px">{{ t('settings.system.days') }}</span>
             </el-form-item>
-            <el-form-item label="自动备份">
+            <el-form-item :label="t('settings.system.autoBackup')">
               <el-switch v-model="systemForm.autoBackup" />
             </el-form-item>
-            <el-form-item label="备份时间">
+            <el-form-item :label="t('settings.system.backupTime')">
               <el-time-picker
                 v-model="systemForm.backupTime"
                 format="HH:mm"
-                placeholder="选择时间"
+                :placeholder="t('settings.system.pickTime')"
               />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSaveSystem">保存</el-button>
+              <el-button type="primary" @click="handleSaveSystem">{{ t('common.save') }}</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -76,35 +76,35 @@
     <el-card class="users-card">
       <template #header>
         <div class="card-header">
-          <span>用户管理</span>
-          <el-button type="primary" :icon="Plus" @click="handleAddUser">添加用户</el-button>
+          <span>{{ t('settings.users.title') }}</span>
+          <el-button type="primary" :icon="Plus" @click="handleAddUser">{{ t('settings.users.add') }}</el-button>
         </div>
       </template>
       <el-table :data="users" style="width: 100%">
-        <el-table-column prop="username" label="用户名" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column prop="role" label="角色" width="120">
+        <el-table-column prop="username" :label="t('settings.users.columns.username')" width="150" />
+        <el-table-column prop="email" :label="t('settings.users.columns.email')" width="200" />
+        <el-table-column prop="role" :label="t('settings.users.columns.role')" width="120">
           <template #default="{ row }">
             <el-tag :type="getRoleType(row.role)" size="small">
               {{ getRoleText(row.role) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" :label="t('settings.users.columns.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-              {{ row.status === 'active' ? '激活' : '禁用' }}
+              {{ row.status === 'active' ? t('settings.users.active') : t('settings.users.disabled') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastLogin" label="最后登录" width="180" />
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="lastLogin" :label="t('settings.users.columns.lastLogin')" width="180" />
+        <el-table-column prop="createdAt" :label="t('settings.users.columns.createdAt')" width="180" />
+        <el-table-column :label="t('common.actions')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEditUser(row)">编辑</el-button>
-            <el-button size="small" @click="handleResetPassword(row)">重置密码</el-button>
+            <el-button size="small" @click="handleEditUser(row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" @click="handleResetPassword(row)">{{ t('settings.users.resetPwd') }}</el-button>
             <el-button size="small" type="danger" @click="handleDeleteUser(row)">
-              删除
+              {{ t('common.delete') }}
             </el-button>
           </template>
         </el-table-column>
@@ -115,25 +115,25 @@
     <el-card class="audit-card">
       <template #header>
         <div class="card-header">
-          <span>审计日志</span>
-          <el-button :icon="Download" @click="handleExportAudit">导出</el-button>
+          <span>{{ t('settings.audit.title') }}</span>
+          <el-button :icon="Download" @click="handleExportAudit">{{ t('common.export') }}</el-button>
         </div>
       </template>
       <el-table :data="auditLogs" style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="user" label="操作者" width="120" />
-        <el-table-column prop="action" label="操作" width="150" />
-        <el-table-column prop="resource" label="资源" width="150" />
-        <el-table-column prop="result" label="结果" width="100">
+        <el-table-column prop="user" :label="t('settings.audit.columns.user')" width="120" />
+        <el-table-column prop="action" :label="t('settings.audit.columns.action')" width="150" />
+        <el-table-column prop="resource" :label="t('settings.audit.columns.resource')" width="150" />
+        <el-table-column prop="result" :label="t('settings.audit.columns.result')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.result === 'success' ? 'success' : 'danger'" size="small">
-              {{ row.result === 'success' ? '成功' : '失败' }}
+              {{ row.result === 'success' ? t('status.success') : t('status.failed') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="ip" label="IP 地址" width="150" />
-        <el-table-column prop="timestamp" label="时间" width="180" />
-        <el-table-column prop="details" label="详情" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="ip" :label="t('settings.audit.columns.ip')" width="150" />
+        <el-table-column prop="timestamp" :label="t('settings.audit.columns.timestamp')" width="180" />
+        <el-table-column prop="details" :label="t('settings.audit.columns.details')" min-width="200" show-overflow-tooltip />
       </el-table>
     </el-card>
   </div>
@@ -143,6 +143,9 @@
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 通知配置
 const notifyForm = ref({
@@ -235,63 +238,63 @@ const getRoleType = (role: string) => {
 
 const getRoleText = (role: string) => {
   const textMap: Record<string, string> = {
-    admin: '管理员',
-    operator: '操作员',
-    viewer: '查看者'
+    admin: t('settings.users.roles.admin'),
+    operator: t('settings.users.roles.operator'),
+    viewer: t('settings.users.roles.viewer')
   }
   return textMap[role] || role
 }
 
 const handleSaveNotify = () => {
-  ElMessage.success('通知配置已保存')
+  ElMessage.success(t('settings.notify.saved'))
 }
 
 const handleTestNotify = () => {
-  ElMessage.success('测试通知已发送')
+  ElMessage.success(t('settings.notify.testSent'))
 }
 
 const handleSaveSystem = () => {
-  ElMessage.success('系统配置已保存')
+  ElMessage.success(t('settings.system.saved'))
 }
 
 const handleAddUser = () => {
-  ElMessage.info('添加用户功能开发中')
+  ElMessage.info(t('settings.users.addWip'))
 }
 
 const handleEditUser = (row: any) => {
-  ElMessage.info(`编辑用户：${row.username}`)
+  ElMessage.info(t('settings.users.edit', { name: row.username }))
 }
 
 const handleResetPassword = (row: any) => {
-  ElMessageBox.confirm(`确定要重置用户 "${row.username}" 的密码吗？`, '确认重置', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('settings.users.confirmReset', { name: row.username }), t('settings.users.resetPwd'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('密码已重置')
+      ElMessage.success(t('settings.users.resetOk'))
     })
     .catch(() => {
-      ElMessage.info('已取消重置')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleDeleteUser = (row: any) => {
-  ElMessageBox.confirm(`确定要删除用户 "${row.username}" 吗？`, '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('settings.users.confirmDelete', { name: row.username }), t('common.confirmDelete'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('common.deleteSuccess'))
     })
     .catch(() => {
-      ElMessage.info('已取消删除')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleExportAudit = () => {
-  ElMessage.success('开始导出审计日志')
+  ElMessage.success(t('settings.audit.exporting'))
 }
 </script>
 

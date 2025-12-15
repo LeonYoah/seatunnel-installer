@@ -9,47 +9,47 @@
           <SuccessFilled />
         </el-icon>
       </div>
-      <h2>SeaTunnel 集群部署成功！</h2>
-      <p class="complete-desc">恭喜！您的 SeaTunnel 集群已成功部署并启动。</p>
+      <h2>{{ t('install.complete.title') }}</h2>
+      <p class="complete-desc">{{ t('install.complete.subtitle') }}</p>
 
       <div class="info-section">
-        <h3>集群信息</h3>
+        <h3>{{ t('install.complete.clusterInfo') }}</h3>
         <el-descriptions :column="1" border>
-          <el-descriptions-item label="集群名称">production-cluster</el-descriptions-item>
-          <el-descriptions-item label="SeaTunnel 版本">2.3.12</el-descriptions-item>
-          <el-descriptions-item label="部署模式">分离模式 (Master/Worker)</el-descriptions-item>
-          <el-descriptions-item label="节点数量">3 个节点</el-descriptions-item>
-          <el-descriptions-item label="安装路径">
+          <el-descriptions-item :label="t('install.complete.clusterName')">production-cluster</el-descriptions-item>
+          <el-descriptions-item :label="t('install.complete.version')">2.3.12</el-descriptions-item>
+          <el-descriptions-item :label="t('install.complete.deployMode')">{{ t('install.config.separated') }} (Master/Worker)</el-descriptions-item>
+          <el-descriptions-item :label="t('install.complete.nodeCount')">3</el-descriptions-item>
+          <el-descriptions-item :label="t('install.complete.installPath')">
             /home/seatunnel/seatunnel-package/apache-seatunnel-2.3.12
           </el-descriptions-item>
         </el-descriptions>
       </div>
 
       <div class="info-section">
-        <h3>访问地址</h3>
+        <h3>{{ t('install.complete.access') }}</h3>
         <el-alert type="info" :closable="false">
           <template #default>
-            <div>Master HTTP 端口: <strong>http://192.168.1.100:8080</strong></div>
+            <div>{{ t('install.complete.masterHttp') }} <strong>http://192.168.1.100:8080</strong></div>
           </template>
         </el-alert>
       </div>
 
       <div class="info-section">
-        <h3>快速开始</h3>
+        <h3>{{ t('install.complete.quickStart') }}</h3>
         <el-steps direction="vertical" :active="0">
-          <el-step title="查看集群状态">
+          <el-step :title="t('install.complete.stepCheck')">
             <template #description>
               <code>systemctl status seatunnel-master</code>
             </template>
           </el-step>
-          <el-step title="提交第一个任务">
+          <el-step :title="t('install.complete.stepSubmit')">
             <template #description>
-              前往任务管理页面创建和提交数据集成任务
+              {{ t('install.complete.stepSubmitDesc') }}
             </template>
           </el-step>
-          <el-step title="监控集群">
+          <el-step :title="t('install.complete.stepMonitor')">
             <template #description>
-              在集群管理页面查看节点状态和资源使用情况
+              {{ t('install.complete.stepMonitorDesc') }}
             </template>
           </el-step>
         </el-steps>
@@ -57,10 +57,10 @@
 
       <div class="action-buttons">
         <el-button type="primary" size="large" @click="goToDashboard">
-          进入控制台
+          {{ t('install.complete.goConsole') }}
         </el-button>
-        <el-button size="large" @click="goToClusters">查看集群</el-button>
-        <el-button size="large" @click="downloadReport">下载安装报告</el-button>
+        <el-button size="large" @click="goToClusters">{{ t('install.complete.viewClusters') }}</el-button>
+        <el-button size="large" @click="downloadReport">{{ t('install.complete.downloadReport') }}</el-button>
       </div>
     </div>
   </el-card>
@@ -70,8 +70,10 @@
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { SuccessFilled } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const goToDashboard = () => {
   router.push('/dashboard')
@@ -82,7 +84,7 @@ const goToClusters = () => {
 }
 
 const downloadReport = () => {
-  ElMessage.success('开始下载安装报告')
+  ElMessage.success(t('install.complete.reportStart'))
 }
 </script>
 

@@ -5,15 +5,17 @@
 <template>
   <div class="footer">
     <p class="copyright">
-      © {{ currentYear }} SeaTunnel 企业级管理平台 | Apache SeaTunnel
+      © {{ currentYear }} {{ t('footer.copyright') }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const currentYear = computed(() => new Date().getFullYear())
+const { t } = useI18n()
 </script>
 
 <style scoped>

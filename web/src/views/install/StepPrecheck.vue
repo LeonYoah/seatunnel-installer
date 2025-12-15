@@ -5,8 +5,8 @@
   <el-card class="step-card">
     <template #header>
       <div class="card-header">
-        <span>环境检查</span>
-        <el-tag v-if="allPassed" type="success">全部通过</el-tag>
+        <span>{{ t('install.steps.precheck') }}</span>
+        <el-tag v-if="allPassed" type="success">{{ t('install.precheck.allPassed') }}</el-tag>
       </div>
     </template>
 
@@ -31,8 +31,8 @@
     </div>
 
     <div class="step-actions">
-      <el-button @click="handlePrev">上一步</el-button>
-      <el-button type="primary" :disabled="!allPassed" @click="handleNext">下一步</el-button>
+      <el-button @click="handlePrev">{{ t('common.prev') }}</el-button>
+      <el-button type="primary" :disabled="!allPassed" @click="handleNext">{{ t('common.next') }}</el-button>
     </div>
   </el-card>
 </template>
@@ -40,16 +40,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { CircleCheck, CircleClose, Loading } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['next', 'prev'])
+const { t } = useI18n()
 
 const items = ref([
-  { id: 1, title: '内存检查', status: 'success', message: '可用内存: 16GB' },
-  { id: 2, title: 'CPU 检查', status: 'success', message: 'CPU 核心数: 8' },
-  { id: 3, title: '磁盘空间检查', status: 'success', message: '可用空间: 100GB' },
-  { id: 4, title: 'SSH 连通性检查', status: 'success', message: '所有节点连接正常' },
-  { id: 5, title: '端口占用检查', status: 'success', message: '端口可用' },
-  { id: 6, title: '防火墙状态检查', status: 'success', message: '防火墙已关闭' }
+  { id: 1, title: t('install.precheck.items.memory'), status: 'success', message: t('install.precheck.msg.memoryOk') },
+  { id: 2, title: t('install.precheck.items.cpu'), status: 'success', message: t('install.precheck.msg.cpuOk') },
+  { id: 3, title: t('install.precheck.items.disk'), status: 'success', message: t('install.precheck.msg.diskOk') },
+  { id: 4, title: t('install.precheck.items.ssh'), status: 'success', message: t('install.precheck.msg.sshOk') },
+  { id: 5, title: t('install.precheck.items.port'), status: 'success', message: t('install.precheck.msg.portOk') },
+  { id: 6, title: t('install.precheck.items.firewall'), status: 'success', message: t('install.precheck.msg.firewallOk') }
 ])
 
 const allPassed = computed(() => items.value.every(item => item.status === 'success'))

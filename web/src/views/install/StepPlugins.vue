@@ -5,8 +5,8 @@
   <el-card class="step-card">
     <template #header>
       <div class="card-header">
-        <span>插件选择</span>
-        <el-tag>已选 {{ selected.length }} 个插件</el-tag>
+        <span>{{ t('install.steps.plugins') }}</span>
+        <el-tag>{{ t('install.plugins.selected', { count: selected.length }) }}</el-tag>
       </div>
     </template>
 
@@ -25,31 +25,33 @@
     </el-checkbox-group>
 
     <div class="step-actions">
-      <el-button @click="handlePrev">上一步</el-button>
-      <el-button type="primary" @click="handleNext">下一步</el-button>
+      <el-button @click="handlePrev">{{ t('common.prev') }}</el-button>
+      <el-button type="primary" @click="handleNext">{{ t('common.next') }}</el-button>
     </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['next', 'prev'])
+const { t } = useI18n()
 
 const selected = ref(['mysql-cdc', 'kafka'])
 
 const categories = ref([
   {
     name: 'source',
-    label: 'Source 连接器',
+    label: t('install.plugins.source'),
     plugins: [
-      { id: 'mysql-cdc', name: 'MySQL-CDC', desc: 'MySQL 变更数据捕获' },
-      { id: 'postgres-cdc', name: 'PostgreSQL-CDC', desc: 'PostgreSQL 变更数据捕获' }
+      { id: 'mysql-cdc', name: 'MySQL-CDC', desc: 'MySQL CDC' },
+      { id: 'postgres-cdc', name: 'PostgreSQL-CDC', desc: 'PostgreSQL CDC' }
     ]
   },
   {
     name: 'sink',
-    label: 'Sink 连接器',
+    label: t('install.plugins.sink'),
     plugins: [
       { id: 'kafka', name: 'Kafka', desc: 'Apache Kafka' },
       { id: 'iceberg', name: 'Iceberg', desc: 'Apache Iceberg' }

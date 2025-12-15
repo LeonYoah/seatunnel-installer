@@ -7,9 +7,9 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>主机管理</span>
+          <span>{{ t('menu.hosts') }}</span>
           <div class="header-actions">
-            <el-button type="primary" :icon="Plus" @click="handleAddHost">注册主机</el-button>
+            <el-button type="primary" :icon="Plus" @click="handleAddHost">{{ t('hosts.register') }}</el-button>
           </div>
         </div>
       </template>
@@ -18,41 +18,41 @@
       <div class="filter-bar">
         <el-input
           v-model="searchText"
-          placeholder="搜索主机 IP 或名称"
+          :placeholder="t('hosts.searchPlaceholder')"
           :prefix-icon="Search"
           style="width: 300px"
           clearable
         />
-        <el-select v-model="filterStatus" placeholder="状态筛选" style="width: 150px" clearable>
-          <el-option label="全部" value="" />
-          <el-option label="在线" value="online" />
-          <el-option label="离线" value="offline" />
-          <el-option label="Agent 未安装" value="no-agent" />
+        <el-select v-model="filterStatus" :placeholder="t('common.statusFilter')" style="width: 150px" clearable>
+          <el-option :label="t('common.all')" value="" />
+          <el-option :label="t('status.online')" value="online" />
+          <el-option :label="t('status.offline')" value="offline" />
+          <el-option :label="t('hosts.agentNotInstalled')" value="no-agent" />
         </el-select>
-        <el-button :icon="Refresh" @click="handleRefresh">刷新</el-button>
+        <el-button :icon="Refresh" @click="handleRefresh">{{ t('common.refresh') }}</el-button>
       </div>
 
       <!-- 主机列表 -->
       <el-table :data="filteredHosts" style="width: 100%; margin-top: 20px">
-        <el-table-column prop="name" label="主机名称" min-width="150" />
-        <el-table-column prop="ip" label="IP 地址" width="150" />
-        <el-table-column prop="port" label="SSH 端口" width="100" />
-        <el-table-column prop="user" label="SSH 用户" width="120" />
-        <el-table-column prop="agentStatus" label="Agent 状态" width="120">
+        <el-table-column prop="name" :label="t('hosts.columns.name')" min-width="150" />
+        <el-table-column prop="ip" :label="t('hosts.columns.ip')" width="150" />
+        <el-table-column prop="port" :label="t('hosts.columns.port')" width="100" />
+        <el-table-column prop="user" :label="t('hosts.columns.user')" width="120" />
+        <el-table-column prop="agentStatus" :label="t('hosts.columns.agentStatus')" width="120">
           <template #default="{ row }">
             <el-tag :type="getAgentStatusType(row.agentStatus)" size="small">
               {{ getAgentStatusText(row.agentStatus) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="主机状态" width="100">
+        <el-table-column prop="status" :label="t('hosts.columns.hostStatus')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'online' ? 'success' : 'info'" size="small">
-              {{ row.status === 'online' ? '在线' : '离线' }}
+              {{ row.status === 'online' ? t('status.online') : t('status.offline') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="cpu" label="CPU 使用率" width="120">
+        <el-table-column prop="cpu" :label="t('hosts.columns.cpu')" width="120">
           <template #default="{ row }">
             <el-progress
               :percentage="row.cpu"
@@ -61,7 +61,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="memory" label="内存使用率" width="120">
+        <el-table-column prop="memory" :label="t('hosts.columns.memory')" width="120">
           <template #default="{ row }">
             <el-progress
               :percentage="row.memory"
@@ -70,8 +70,8 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="lastHeartbeat" label="最后心跳" width="180" />
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column prop="lastHeartbeat" :label="t('hosts.columns.lastHeartbeat')" width="180" />
+        <el-table-column :label="t('common.actions')" width="300" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.agentStatus === 'not-installed'"
@@ -79,7 +79,7 @@
               type="primary"
               @click="handleInstallAgent(row)"
             >
-              安装 Agent
+              {{ t('hosts.installAgent') }}
             </el-button>
             <el-button
               v-if="row.agentStatus === 'installed'"
@@ -87,11 +87,11 @@
               type="warning"
               @click="handleUninstallAgent(row)"
             >
-              卸载 Agent
+              {{ t('hosts.uninstallAgent') }}
             </el-button>
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" @click="handleTestConnection(row)">测试连接</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" @click="handleEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" @click="handleTestConnection(row)">{{ t('hosts.testConnection') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -116,42 +116,42 @@
       @close="handleDialogClose"
     >
       <el-form :model="hostForm" :rules="hostRules" ref="hostFormRef" label-width="120px">
-        <el-form-item label="主机名称" prop="name">
-          <el-input v-model="hostForm.name" placeholder="例如：master-01" />
+        <el-form-item :label="t('hosts.form.name')" prop="name">
+          <el-input v-model="hostForm.name" :placeholder="t('hosts.form.exampleName')" />
         </el-form-item>
-        <el-form-item label="IP 地址" prop="ip">
-          <el-input v-model="hostForm.ip" placeholder="例如：192.168.1.100" />
+        <el-form-item :label="t('hosts.form.ip')" prop="ip">
+          <el-input v-model="hostForm.ip" :placeholder="t('hosts.form.exampleIp')" />
         </el-form-item>
-        <el-form-item label="SSH 端口" prop="port">
+        <el-form-item :label="t('hosts.form.port')" prop="port">
           <el-input-number v-model="hostForm.port" :min="1" :max="65535" />
         </el-form-item>
-        <el-form-item label="SSH 用户" prop="user">
-          <el-input v-model="hostForm.user" placeholder="例如：root" />
+        <el-form-item :label="t('hosts.form.user')" prop="user">
+          <el-input v-model="hostForm.user" :placeholder="t('hosts.form.exampleUser')" />
         </el-form-item>
-        <el-form-item label="认证方式" prop="authType">
+        <el-form-item :label="t('hosts.form.authType')" prop="authType">
           <el-radio-group v-model="hostForm.authType">
-            <el-radio label="password">密码</el-radio>
-            <el-radio label="key">密钥</el-radio>
+            <el-radio label="password">{{ t('hosts.form.password') }}</el-radio>
+            <el-radio label="key">{{ t('hosts.form.key') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="hostForm.authType === 'password'" label="SSH 密码" prop="password">
+        <el-form-item v-if="hostForm.authType === 'password'" :label="t('hosts.form.sshPassword')" prop="password">
           <el-input v-model="hostForm.password" type="password" show-password />
         </el-form-item>
-        <el-form-item v-if="hostForm.authType === 'key'" label="私钥路径" prop="keyPath">
-          <el-input v-model="hostForm.keyPath" placeholder="例如：~/.ssh/id_rsa" />
+        <el-form-item v-if="hostForm.authType === 'key'" :label="t('hosts.form.keyPath')" prop="keyPath">
+          <el-input v-model="hostForm.keyPath" :placeholder="t('hosts.form.exampleKeyPath')" />
         </el-form-item>
-        <el-form-item label="描述">
+        <el-form-item :label="t('hosts.form.desc')">
           <el-input
             v-model="hostForm.description"
             type="textarea"
             :rows="3"
-            placeholder="主机描述信息"
+            :placeholder="t('hosts.form.descPlaceholder')"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -161,6 +161,9 @@
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 搜索和筛选
 const searchText = ref('')
@@ -170,7 +173,7 @@ const pageSize = ref(10)
 
 // 对话框
 const dialogVisible = ref(false)
-const dialogTitle = ref('注册主机')
+const dialogTitle = ref(t('hosts.register'))
 const hostFormRef = ref<FormInstance>()
 
 // 主机表单
@@ -187,25 +190,25 @@ const hostForm = ref({
 
 // 表单验证规则
 const hostRules: FormRules = {
-  name: [{ required: true, message: '请输入主机名称', trigger: 'blur' }],
+  name: [{ required: true, message: t('hosts.valid.name'), trigger: 'blur' }],
   ip: [
-    { required: true, message: '请输入 IP 地址', trigger: 'blur' },
+    { required: true, message: t('hosts.valid.ipRequired'), trigger: 'blur' },
     {
       pattern: /^(\d{1,3}\.){3}\d{1,3}$/,
-      message: '请输入有效的 IP 地址',
+      message: t('hosts.valid.ipFormat'),
       trigger: 'blur'
     }
   ],
-  port: [{ required: true, message: '请输入 SSH 端口', trigger: 'blur' }],
-  user: [{ required: true, message: '请输入 SSH 用户', trigger: 'blur' }],
+  port: [{ required: true, message: t('hosts.valid.port'), trigger: 'blur' }],
+  user: [{ required: true, message: t('hosts.valid.user'), trigger: 'blur' }],
   password: [
     {
       required: true,
-      message: '请输入 SSH 密码',
+      message: t('hosts.valid.password'),
       trigger: 'blur',
       validator: (_rule, _value, callback) => {
         if (hostForm.value.authType === 'password' && !hostForm.value.password) {
-          callback(new Error('请输入 SSH 密码'))
+          callback(new Error(t('hosts.valid.password')))
         } else {
           callback()
         }
@@ -215,11 +218,11 @@ const hostRules: FormRules = {
   keyPath: [
     {
       required: true,
-      message: '请输入私钥路径',
+      message: t('hosts.valid.keyPath'),
       trigger: 'blur',
       validator: (_rule, _value, callback) => {
         if (hostForm.value.authType === 'key' && !hostForm.value.keyPath) {
-          callback(new Error('请输入私钥路径'))
+          callback(new Error(t('hosts.valid.keyPath')))
         } else {
           callback()
         }
@@ -315,8 +318,8 @@ const getAgentStatusType = (status: string) => {
 
 const getAgentStatusText = (status: string) => {
   const textMap: Record<string, string> = {
-    installed: '已安装',
-    'not-installed': '未安装'
+    installed: t('status.installed'),
+    'not-installed': t('status.notInstalled')
   }
   return textMap[status] || status
 }
@@ -328,12 +331,12 @@ const getProgressColor = (percentage: number) => {
 }
 
 const handleAddHost = () => {
-  dialogTitle.value = '注册主机'
+  dialogTitle.value = t('hosts.register')
   dialogVisible.value = true
 }
 
 const handleEdit = (row: any) => {
-  dialogTitle.value = '编辑主机'
+  dialogTitle.value = t('hosts.edit')
   hostForm.value = { ...row }
   dialogVisible.value = true
 }
@@ -357,7 +360,7 @@ const handleSubmit = async () => {
 
   await hostFormRef.value.validate((valid) => {
     if (valid) {
-      ElMessage.success('主机注册成功')
+      ElMessage.success(t('hosts.msg.saved'))
       dialogVisible.value = false
     }
   })
@@ -365,72 +368,72 @@ const handleSubmit = async () => {
 
 const handleInstallAgent = (row: any) => {
   ElMessageBox.confirm(
-    `确定要在主机 "${row.name}" (${row.ip}) 上安装 Agent 吗？`,
-    '安装 Agent',
+    t('hosts.msg.confirmInstallAgent', { name: row.name, ip: row.ip }),
+    t('hosts.installAgent'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'info'
     }
   )
     .then(() => {
-      ElMessage.success('Agent 安装任务已提交，请稍候...')
+      ElMessage.success(t('hosts.msg.installSubmitted'))
       // TODO: 调用 API 安装 Agent
     })
     .catch(() => {
-      ElMessage.info('已取消安装')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleUninstallAgent = (row: any) => {
   ElMessageBox.confirm(
-    `确定要卸载主机 "${row.name}" (${row.ip}) 上的 Agent 吗？`,
-    '卸载 Agent',
+    t('hosts.msg.confirmUninstallAgent', { name: row.name, ip: row.ip }),
+    t('hosts.uninstallAgent'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     }
   )
     .then(() => {
-      ElMessage.success('Agent 卸载成功')
+      ElMessage.success(t('hosts.msg.uninstallSuccess'))
       // TODO: 调用 API 卸载 Agent
     })
     .catch(() => {
-      ElMessage.info('已取消卸载')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleTestConnection = (row: any) => {
-  ElMessage.info(`正在测试与主机 ${row.name} 的连接...`)
+  ElMessage.info(t('hosts.msg.testing', { name: row.name }))
   // TODO: 调用 API 测试连接
   setTimeout(() => {
-    ElMessage.success('连接测试成功')
+    ElMessage.success(t('hosts.msg.testSuccess'))
   }, 1000)
 }
 
 const handleDelete = (row: any) => {
-  ElMessageBox.confirm(`确定要删除主机 "${row.name}" 吗？`, '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('hosts.msg.confirmDelete', { name: row.name }), t('common.confirmDelete'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('common.deleteSuccess'))
       // TODO: 调用 API 删除主机
     })
     .catch(() => {
-      ElMessage.info('已取消删除')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleRefresh = () => {
-  ElMessage.success('刷新成功')
+  ElMessage.success(t('common.refreshSuccess'))
   // TODO: 调用 API 刷新主机列表
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .hosts {
   width: 100%;
 }

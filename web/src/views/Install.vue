@@ -6,11 +6,11 @@
     <!-- 步骤导航 -->
     <el-card class="steps-card">
       <el-steps :active="currentStep" align-center>
-        <el-step title="配置参数" />
-        <el-step title="环境检查" />
-        <el-step title="插件选择" />
-        <el-step title="安装部署" />
-        <el-step title="完成" />
+        <el-step :title="t('install.steps.config')" />
+        <el-step :title="t('install.steps.precheck')" />
+        <el-step :title="t('install.steps.plugins')" />
+        <el-step :title="t('install.steps.install')" />
+        <el-step :title="t('install.steps.complete')" />
       </el-steps>
     </el-card>
 
@@ -26,8 +26,10 @@ import StepPrecheck from './install/StepPrecheck.vue'
 import StepPlugins from './install/StepPlugins.vue'
 import StepInstall from './install/StepInstall.vue'
 import StepComplete from './install/StepComplete.vue'
+import { useI18n } from 'vue-i18n'
 
 const currentStep = ref(0)
+const { t } = useI18n()
 
 const steps = [StepConfig, StepPrecheck, StepPlugins, StepInstall, StepComplete]
 

@@ -12,46 +12,38 @@
     >
       <el-menu-item index="/dashboard">
         <el-icon><Odometer /></el-icon>
-        <template #title>总览</template>
+        <template #title>{{ t('menu.dashboard') }}</template>
       </el-menu-item>
       <el-menu-item index="/hosts">
         <el-icon><Monitor /></el-icon>
-        <template #title>主机管理</template>
+        <template #title>{{ t('menu.hosts') }}</template>
       </el-menu-item>
       <el-menu-item index="/deploy">
         <el-icon><Download /></el-icon>
-        <template #title>部署集群</template>
+        <template #title>{{ t('menu.deploy') }}</template>
       </el-menu-item>
       <el-menu-item index="/tasks">
         <el-icon><List /></el-icon>
-        <template #title>任务管理</template>
+        <template #title>{{ t('menu.tasks') }}</template>
       </el-menu-item>
       <el-menu-item index="/clusters">
         <el-icon><Connection /></el-icon>
-        <template #title>集群管理</template>
+        <template #title>{{ t('menu.clusters') }}</template>
       </el-menu-item>
       <el-menu-item index="/diagnostics">
         <el-icon><Tools /></el-icon>
-        <template #title>诊断中心</template>
+        <template #title>{{ t('menu.diagnostics') }}</template>
       </el-menu-item>
       <el-menu-item index="/plugins">
         <el-icon><Grid /></el-icon>
-        <template #title>插件市场</template>
+        <template #title>{{ t('menu.plugins') }}</template>
       </el-menu-item>
       <el-menu-item index="/settings">
         <el-icon><Setting /></el-icon>
-        <template #title>设置</template>
+        <template #title>{{ t('menu.settings') }}</template>
       </el-menu-item>
     </el-menu>
-    <div class="sidebar-footer">
-      <el-button
-        :icon="isCollapse ? 'Expand' : 'Fold'"
-        text
-        @click="toggleCollapse"
-      >
-        {{ isCollapse ? '' : '收起' }}
-      </el-button>
-    </div>
+    <div class="sidebar-footer"></div>
   </div>
 </template>
 
@@ -68,9 +60,11 @@ import {
   Grid,
   Setting
 } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 const isCollapse = ref(false)
 
@@ -87,7 +81,7 @@ const toggleCollapse = () => {
 
 <style scoped>
 .sidebar {
-  width: 200px;
+  width: 216px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -102,7 +96,7 @@ const toggleCollapse = () => {
 }
 
 .sidebar-menu:not(.el-menu--collapse) {
-  width: 200px;
+  width: 216px;
 }
 
 .sidebar-footer {

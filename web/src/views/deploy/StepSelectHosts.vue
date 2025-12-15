@@ -5,39 +5,39 @@
 <template>
   <el-card class="step-card">
     <template #header>
-      <span>选择主机</span>
+      <span>{{ t('deploy.steps.selectHosts') }}</span>
     </template>
 
     <el-alert
-      title="提示"
+      :title="t('deploy.select.tip')"
       type="info"
       :closable="false"
       style="margin-bottom: 20px"
     >
-      请从已注册的主机中选择要部署 SeaTunnel 集群的节点。如果没有可用主机，请先前往
-      <el-link type="primary" @click="goToHosts">主机管理</el-link>
-      注册主机并安装 Agent。
+      {{ t('deploy.select.desc') }}
+      <el-link type="primary" @click="goToHosts">{{ t('menu.hosts') }}</el-link>
+      {{ t('deploy.select.desc2') }}
     </el-alert>
 
     <el-form :model="form" label-width="140px">
       <!-- 部署模式 -->
       <div class="form-section">
-        <h3>部署模式</h3>
-        <el-form-item label="部署模式">
+        <h3>{{ t('install.config.deployMode') }}</h3>
+        <el-form-item :label="t('install.config.deployMode')">
           <el-radio-group v-model="form.deployMode">
-            <el-radio label="separated">分离模式（Master/Worker）</el-radio>
-            <el-radio label="hybrid">混合模式（所有节点角色相同）</el-radio>
+            <el-radio label="separated">{{ t('deploy.modes.separated') }}</el-radio>
+            <el-radio label="hybrid">{{ t('deploy.modes.hybrid') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </div>
 
       <!-- 分离模式 - 选择 Master -->
       <div v-if="form.deployMode === 'separated'" class="form-section">
-        <h3>Master 节点</h3>
-        <el-form-item label="选择 Master">
+        <h3>Master</h3>
+        <el-form-item :label="t('deploy.select.master')">
           <el-select
             v-model="form.masterHost"
-            placeholder="请选择 Master 节点"
+            :placeholder="t('deploy.select.masterPlaceholder')"
             style="width: 400px"
             filterable
           >
@@ -51,12 +51,12 @@
               <div style="display: flex; justify-content: space-between; align-items: center">
                 <span>{{ host.name }} ({{ host.ip }})</span>
                 <el-tag v-if="!host.agentInstalled" type="warning" size="small">
-                  Agent 未安装
+                  {{ t('hosts.agentNotInstalled') }}
                 </el-tag>
                 <el-tag v-else-if="host.status === 'offline'" type="info" size="small">
-                  离线
+                  {{ t('status.offline') }}
                 </el-tag>
-                <el-tag v-else type="success" size="small">在线</el-tag>
+                <el-tag v-else type="success" size="small">{{ t('status.online') }}</el-tag>
               </div>
             </el-option>
           </el-select>
@@ -65,11 +65,11 @@
 
       <!-- 分离模式 - 选择 Workers -->
       <div v-if="form.deployMode === 'separated'" class="form-section">
-        <h3>Worker 节点</h3>
-        <el-form-item label="选择 Workers">
+        <h3>Worker</h3>
+        <el-form-item :label="t('deploy.select.workers')">
           <el-select
             v-model="form.workerHosts"
-            placeholder="请选择 Worker 节点（可多选）"
+            :placeholder="t('deploy.select.workersPlaceholder')"
             style="width: 400px"
             multiple
             filterable
@@ -84,12 +84,12 @@
               <div style="display: flex; justify-content: space-between; align-items: center">
                 <span>{{ host.name }} ({{ host.ip }})</span>
                 <el-tag v-if="!host.agentInstalled" type="warning" size="small">
-                  Agent 未安装
+                  {{ t('hosts.agentNotInstalled') }}
                 </el-tag>
                 <el-tag v-else-if="host.status === 'offline'" type="info" size="small">
-                  离线
+                  {{ t('status.offline') }}
                 </el-tag>
-                <el-tag v-else type="success" size="small">在线</el-tag>
+                <el-tag v-else type="success" size="small">{{ t('status.online') }}</el-tag>
               </div>
             </el-option>
           </el-select>
@@ -98,11 +98,11 @@
 
       <!-- 混合模式 - 选择所有节点 -->
       <div v-if="form.deployMode === 'hybrid'" class="form-section">
-        <h3>集群节点</h3>
-        <el-form-item label="选择节点">
+        <h3>{{ t('deploy.select.clusterNodes') }}</h3>
+        <el-form-item :label="t('deploy.select.nodes')">
           <el-select
             v-model="form.clusterHosts"
-            placeholder="请选择集群节点（可多选）"
+            :placeholder="t('deploy.select.nodesPlaceholder')"
             style="width: 400px"
             multiple
             filterable
@@ -117,12 +117,12 @@
               <div style="display: flex; justify-content: space-between; align-items: center">
                 <span>{{ host.name}} ({{ host.ip }})</span>
                 <el-tag v-if="!host.agentInstalled" type="warning" size="small">
-                  Agent 未安装
+                  {{ t('hosts.agentNotInstalled') }}
                 </el-tag>
                 <el-tag v-else-if="host.status === 'offline'" type="info" size="small">
-                  离线
+                  {{ t('status.offline') }}
                 </el-tag>
-                <el-tag v-else type="success" size="small">在线</el-tag>
+                <el-tag v-else type="success" size="small">{{ t('status.online') }}</el-tag>
               </div>
             </el-option>
           </el-select>
@@ -131,11 +131,11 @@
 
       <!-- 已选主机预览 -->
       <div v-if="selectedHosts.length > 0" class="form-section">
-        <h3>已选主机（{{ selectedHosts.length }} 台）</h3>
+        <h3>{{ t('deploy.select.selectedCount', { count: selectedHosts.length }) }}</h3>
         <el-table :data="selectedHosts" style="width: 100%">
-          <el-table-column prop="name" label="主机名称" width="150" />
-          <el-table-column prop="ip" label="IP 地址" width="150" />
-          <el-table-column prop="role" label="角色" width="120">
+          <el-table-column prop="name" :label="t('hosts.columns.name')" width="150" />
+          <el-table-column prop="ip" :label="t('hosts.columns.ip')" width="150" />
+          <el-table-column prop="role" :label="t('hosts.columns.user')" width="120">
             <template #default="{ row }">
               <el-tag :type="row.role === 'Master' ? 'danger' : 'primary'" size="small">
                 {{ row.role }}
@@ -143,11 +143,11 @@
             </template>
           </el-table-column>
           <el-table-column prop="cpu" label="CPU" width="100" />
-          <el-table-column prop="memory" label="内存" width="100" />
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="memory" :label="t('clusters.columns.memory')" width="100" />
+          <el-table-column prop="status" :label="t('clusters.columns.status')" width="100">
             <template #default="{ row }">
               <el-tag :type="row.status === 'online' ? 'success' : 'info'" size="small">
-                {{ row.status === 'online' ? '在线' : '离线' }}
+                {{ row.status === 'online' ? t('status.online') : t('status.offline') }}
               </el-tag>
             </template>
           </el-table-column>
@@ -156,7 +156,7 @@
     </el-form>
 
     <div class="step-actions">
-      <el-button type="primary" :disabled="!canProceed" @click="handleNext">下一步</el-button>
+      <el-button type="primary" :disabled="!canProceed" @click="handleNext">{{ t('common.next') }}</el-button>
     </div>
   </el-card>
 </template>
@@ -164,9 +164,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const emit = defineEmits(['next'])
+const { t } = useI18n()
 
 const form = ref({
   deployMode: 'separated',

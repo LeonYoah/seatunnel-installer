@@ -6,10 +6,10 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>插件市场</span>
+          <span>{{ t('menu.plugins') }}</span>
           <div class="header-actions">
-            <el-button :icon="Refresh" @click="handleRefresh">刷新仓库</el-button>
-            <el-button :icon="Upload" @click="handleUpload">本地上传</el-button>
+            <el-button :icon="Refresh" @click="handleRefresh">{{ t('plugins.refreshRepo') }}</el-button>
+            <el-button :icon="Upload" @click="handleUpload">{{ t('plugins.uploadLocal') }}</el-button>
           </div>
         </div>
       </template>
@@ -18,27 +18,27 @@
       <div class="filter-bar">
         <el-input
           v-model="searchText"
-          placeholder="搜索插件名称"
+          :placeholder="t('plugins.searchPlaceholder')"
           :prefix-icon="Search"
           style="width: 300px"
           clearable
         />
-        <el-select v-model="filterType" placeholder="类型筛选" style="width: 150px" clearable>
-          <el-option label="全部" value="" />
+        <el-select v-model="filterType" :placeholder="t('common.typeFilter')" style="width: 150px" clearable>
+          <el-option :label="t('common.all')" value="" />
           <el-option label="Source" value="Source" />
           <el-option label="Sink" value="Sink" />
           <el-option label="Transform" value="Transform" />
         </el-select>
-        <el-select v-model="filterStatus" placeholder="状态筛选" style="width: 150px" clearable>
-          <el-option label="全部" value="" />
-          <el-option label="已安装" value="installed" />
-          <el-option label="可用" value="available" />
+        <el-select v-model="filterStatus" :placeholder="t('common.statusFilter')" style="width: 150px" clearable>
+          <el-option :label="t('common.all')" value="" />
+          <el-option :label="t('status.installed')" value="installed" />
+          <el-option :label="t('plugins.available')" value="available" />
         </el-select>
       </div>
 
       <!-- 插件列表 -->
       <el-table :data="filteredPlugins" style="width: 100%; margin-top: 20px">
-        <el-table-column prop="name" label="插件名称" min-width="180">
+        <el-table-column prop="name" :label="t('plugins.columns.name')" min-width="180">
           <template #default="{ row }">
             <div class="plugin-name">
               <el-icon :size="20" style="margin-right: 8px">
@@ -48,35 +48,35 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="type" label="类型" width="120">
+        <el-table-column prop="type" :label="t('plugins.columns.type')" width="120">
           <template #default="{ row }">
             <el-tag :type="getTypeColor(row.type)" size="small">
               {{ row.type }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="version" label="版本" width="120" />
-        <el-table-column prop="compatibility" label="兼容性" width="120" />
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="version" :label="t('plugins.columns.version')" width="120" />
+        <el-table-column prop="compatibility" :label="t('plugins.columns.compatibility')" width="120" />
+        <el-table-column prop="description" :label="t('plugins.columns.desc')" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="status" :label="t('plugins.columns.status')" width="120">
           <template #default="{ row }">
             <el-tag :type="row.status === 'installed' ? 'success' : 'info'" size="small">
-              {{ row.status === 'installed' ? '已安装' : '可用' }}
+              {{ row.status === 'installed' ? t('status.installed') : t('plugins.available') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column :label="t('common.actions')" width="220" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'installed'">
-              <el-button size="small" @click="handleUpgrade(row)">升级</el-button>
-              <el-button size="small" type="danger" @click="handleDisable(row)">禁用</el-button>
+              <el-button size="small" @click="handleUpgrade(row)">{{ t('plugins.upgrade') }}</el-button>
+              <el-button size="small" type="danger" @click="handleDisable(row)">{{ t('plugins.disable') }}</el-button>
             </template>
             <template v-else>
               <el-button size="small" type="primary" @click="handleInstall(row)">
-                安装
+                {{ t('plugins.install') }}
               </el-button>
             </template>
-            <el-button size="small" @click="handleViewDetail(row)">详情</el-button>
+            <el-button size="small" @click="handleViewDetail(row)">{{ t('common.view') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -88,6 +88,9 @@
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Upload, Search, Box } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const searchText = ref('')
 const filterType = ref('')
@@ -236,47 +239,47 @@ const getTypeColor = (type: string) => {
 }
 
 const handleRefresh = () => {
-  ElMessage.success('刷新成功')
+  ElMessage.success(t('common.refreshSuccess'))
 }
 
 const handleUpload = () => {
-  ElMessage.info('本地上传功能开发中')
+  ElMessage.info(t('plugins.msg.uploadWip'))
 }
 
 const handleInstall = (row: any) => {
-  ElMessageBox.confirm(`确定要安装插件 "${row.name}" 吗？`, '确认安装', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('plugins.msg.confirmInstall', { name: row.name }), t('plugins.install'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'info'
   })
     .then(() => {
-      ElMessage.success(`正在安装 ${row.name}...`)
+      ElMessage.success(t('plugins.msg.installing', { name: row.name }))
     })
     .catch(() => {
-      ElMessage.info('已取消安装')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleUpgrade = (row: any) => {
-  ElMessage.info(`升级插件：${row.name}`)
+  ElMessage.info(t('plugins.msg.upgrade', { name: row.name }))
 }
 
 const handleDisable = (row: any) => {
-  ElMessageBox.confirm(`确定要禁用插件 "${row.name}" 吗？`, '确认禁用', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('plugins.msg.confirmDisable', { name: row.name }), t('plugins.disable'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('禁用成功')
+      ElMessage.success(t('plugins.msg.disabled'))
     })
     .catch(() => {
-      ElMessage.info('已取消禁用')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleViewDetail = (row: any) => {
-  ElMessage.info(`查看插件详情：${row.name}`)
+  ElMessage.info(t('plugins.msg.view', { name: row.name }))
 }
 </script>
 

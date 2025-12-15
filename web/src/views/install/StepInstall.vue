@@ -5,9 +5,9 @@
   <el-card class="step-card">
     <template #header>
       <div class="card-header">
-        <span>安装部署</span>
-        <el-tag v-if="installing" type="primary">安装中...</el-tag>
-        <el-tag v-else-if="completed" type="success">安装完成</el-tag>
+        <span>{{ t('install.steps.install') }}</span>
+        <el-tag v-if="installing" type="primary">{{ t('install.install.installing') }}</el-tag>
+        <el-tag v-else-if="completed" type="success">{{ t('install.install.completed') }}</el-tag>
       </div>
     </template>
 
@@ -28,8 +28,8 @@
 
     <div class="log-section">
       <div class="log-header">
-        <span>安装日志</span>
-        <el-button size="small" text @click="scrollToBottom">滚动到底部</el-button>
+        <span>{{ t('install.install.logs') }}</span>
+        <el-button size="small" text @click="scrollToBottom">{{ t('install.install.scrollBottom') }}</el-button>
       </div>
       <div ref="logContainer" class="log-content">
         <div v-for="(log, index) in logs" :key="index" class="log-line">{{ log }}</div>
@@ -37,8 +37,8 @@
     </div>
 
     <div class="step-actions">
-      <el-button @click="handlePrev" :disabled="installing">上一步</el-button>
-      <el-button type="primary" :disabled="!completed" @click="handleNext">完成</el-button>
+      <el-button @click="handlePrev" :disabled="installing">{{ t('common.prev') }}</el-button>
+      <el-button type="primary" :disabled="!completed" @click="handleNext">{{ t('common.ok') }}</el-button>
     </div>
   </el-card>
 </template>
@@ -46,20 +46,22 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
 import { CircleCheck, Loading } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['next', 'prev'])
+const { t } = useI18n()
 
 const installing = ref(false)
 const completed = ref(false)
 const logContainer = ref<HTMLElement>()
 
 const steps = ref([
-  { id: 1, text: '下载安装包', status: 'pending' },
-  { id: 2, text: '解压安装包', status: 'pending' },
-  { id: 3, text: '配置集群', status: 'pending' },
-  { id: 4, text: '安装插件', status: 'pending' },
-  { id: 5, text: '分发到节点', status: 'pending' },
-  { id: 6, text: '启动集群', status: 'pending' }
+  { id: 1, text: t('install.install.steps.download'), status: 'pending' },
+  { id: 2, text: t('install.install.steps.unpack'), status: 'pending' },
+  { id: 3, text: t('install.install.steps.configure'), status: 'pending' },
+  { id: 4, text: t('install.install.steps.plugins'), status: 'pending' },
+  { id: 5, text: t('install.install.steps.distribute'), status: 'pending' },
+  { id: 6, text: t('install.install.steps.start'), status: 'pending' }
 ])
 
 const logs = ref<string[]>([])
@@ -96,7 +98,7 @@ const simulateInstall = async () => {
 
   installing.value = false
   completed.value = true
-  logs.value.push('[INFO] 安装完成！')
+  logs.value.push(t('install.install.done'))
 }
 
 onMounted(() => {

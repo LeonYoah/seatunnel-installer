@@ -11,6 +11,7 @@
 - **构建工具**: Vite 7.2+
 - **UI 组件库**: Element Plus 2.5+
 - **路由**: Vue Router 4.2+
+- **国际化**: vue-i18n（简体中文/English，默认简体中文）
 - **状态管理**: Pinia 2.1+
 - **HTTP 客户端**: Axios 1.6+
 - **代码规范**: ESLint + Prettier
@@ -70,6 +71,19 @@ npm run dev
 
 访问 http://localhost:5173
 
+### 国际化（i18n）
+
+- 默认语言：简体中文（`zh-CN`）。
+- 切换语言：右上角语言下拉框，或 `localStorage.locale`。
+- 语言文件：`src/locales/zh-CN.ts`, `src/locales/en.ts`。
+- i18n 初始化：`src/i18n/index.ts`。
+
+### 主题与品牌色
+
+- 默认主题：明亮（白/蓝）。可在右上角切换暗色主题。
+- 品牌蓝：运行时根据 `public/logo.png` 采样，自动对齐到 `--primary` 并同步 Element Plus 主色。
+- 覆盖变量：见 `src/styles/theme.scss`（`--bg/--surface/--text/--primary` 等）。
+
 ### 构建生产版本
 
 ```bash
@@ -100,6 +114,7 @@ npm run preview
 - ✅ 主题持久化
 - ✅ 完整的暗色主题适配（参考 www/console）
 - ✅ 路由守卫（页面标题、权限检查预留）
+- ✅ 白/蓝主题（默认白色），品牌蓝与 logo 自动对齐
 
 #### 页面功能
 - ✅ **Dashboard 总览页面** - KPI 卡片、趋势图表、告警列表、任务列表

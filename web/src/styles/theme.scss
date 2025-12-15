@@ -7,18 +7,55 @@
    明亮模式（默认）
    ======================================== */
 :root {
-  --bg: #f5f7fa;
+  --bg: #f6f8fb;            /* 更柔和的白底 */
   --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --border: #e4e7ed;
-  --text: #303133;
-  --muted: #909399;
-  --primary: #409eff;
-  --primary-2: #337ecc;
-  --success: #67c23a;
-  --warning: #e6a23c;
-  --error: #f56c6c;
-  --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  --surface-2: #f1f4f9;
+  --border: #e6ebf2;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #5a90e5;
+  --primary-2: #1656cc;
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+
+  /* 同步 Element Plus 变量（明亮模式） */
+  --el-color-primary: var(--primary);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--error);
+  --el-color-error: var(--error);
+  --el-color-info: var(--muted);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--muted);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--surface);
+  --el-box-shadow: var(--shadow);
+  --el-box-shadow-light: var(--shadow);
+  --el-box-shadow-dark: var(--shadow);
+}
+
+.el-button {
+  &:not(.is-circle):not(.is-text) {
+    height: 36px;
+    padding: 0 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  &:not(.is-circle):not(.is-text) + .el-button:not(.is-circle):not(.is-text) {
+    margin-left: 12px;
+  }
+
+  &--primary {
+    border-radius: inherit;
+  }
 }
 
 /* ========================================
@@ -32,8 +69,8 @@ html.dark {
   --border: #1f325a;
   --text: #e6edf7;
   --muted: #9fb2d1;
-  --primary: #3b82f6;
-  --primary-2: #2563eb;
+  --primary:   #001f4d;  /* 更黑的海军蓝，默认态 */
+  --primary-2: #0041b3;  /* 稍亮的蓝，用于 hover/active */
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
@@ -425,10 +462,11 @@ html.dark {
 
   // 链接
   .el-link {
-    color: var(--primary);
+    /* 暗色模式下，详情/查看类链接用正文色，避免一片蓝色太杂 */
+    color: var(--text);
 
     &:hover {
-      color: var(--primary-2);
+      color: #ffffff;
     }
   }
 

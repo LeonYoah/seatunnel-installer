@@ -8,7 +8,7 @@
       <el-col :xs="24" :sm="8">
         <el-card>
           <div class="stat-item">
-            <div class="stat-label">集群总数</div>
+            <div class="stat-label">{{ t('clusters.overview.totalClusters') }}</div>
             <div class="stat-value">{{ clusterStats.total }}</div>
           </div>
         </el-card>
@@ -16,7 +16,7 @@
       <el-col :xs="24" :sm="8">
         <el-card>
           <div class="stat-item">
-            <div class="stat-label">节点总数</div>
+            <div class="stat-label">{{ t('clusters.overview.totalNodes') }}</div>
             <div class="stat-value">{{ clusterStats.nodes }}</div>
           </div>
         </el-card>
@@ -24,7 +24,7 @@
       <el-col :xs="24" :sm="8">
         <el-card>
           <div class="stat-item">
-            <div class="stat-label">平均 CPU 使用率</div>
+            <div class="stat-label">{{ t('clusters.overview.avgCpu') }}</div>
             <div class="stat-value">{{ clusterStats.avgCpu }}%</div>
           </div>
         </el-card>
@@ -35,9 +35,9 @@
     <el-card class="cluster-list">
       <template #header>
         <div class="card-header">
-          <span>集群列表</span>
+          <span>{{ t('clusters.listTitle') }}</span>
           <el-button type="primary" :icon="Plus" @click="handleAddCluster">
-            注册集群
+            {{ t('clusters.register') }}
           </el-button>
         </div>
       </template>
@@ -53,25 +53,25 @@
             <div class="cluster-title">
               <span class="cluster-name">{{ cluster.name }}</span>
               <el-tag :type="cluster.status === 'healthy' ? 'success' : 'danger'" size="small">
-                {{ cluster.status === 'healthy' ? '健康' : '异常' }}
+                {{ cluster.status === 'healthy' ? t('status.healthy') : t('status.unhealthy') }}
               </el-tag>
               <span class="cluster-info">
-                版本: {{ cluster.version }} | 节点: {{ cluster.nodes.length }}
+                {{ t('clusters.version') }}: {{ cluster.version }} | {{ t('clusters.nodes') }}: {{ cluster.nodes.length }}
               </span>
             </div>
           </template>
 
           <!-- 节点列表 -->
           <el-table :data="cluster.nodes" style="width: 100%">
-            <el-table-column prop="name" label="节点名称" width="180" />
-            <el-table-column prop="role" label="角色" width="120">
+            <el-table-column prop="name" :label="t('clusters.columns.nodeName')" width="180" />
+            <el-table-column prop="role" :label="t('clusters.columns.role')" width="120">
               <template #default="{ row }">
                 <el-tag :type="row.role === 'master' ? 'primary' : 'info'" size="small">
                   {{ row.role === 'master' ? 'Master' : 'Worker' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="ip" label="IP 地址" width="150" />
+            <el-table-column prop="ip" :label="t('clusters.columns.ip')" width="150" />
             <el-table-column prop="cpu" label="CPU" width="100">
               <template #default="{ row }">
                 <el-progress
@@ -82,7 +82,7 @@
                 <span style="margin-left: 8px">{{ row.cpu }}%</span>
               </template>
             </el-table-column>
-            <el-table-column prop="memory" label="内存" width="100">
+            <el-table-column prop="memory" :label="t('clusters.columns.memory')" width="100">
               <template #default="{ row }">
                 <el-progress
                   :percentage="row.memory"
@@ -92,7 +92,7 @@
                 <span style="margin-left: 8px">{{ row.memory }}%</span>
               </template>
             </el-table-column>
-            <el-table-column prop="disk" label="磁盘" width="100">
+            <el-table-column prop="disk" :label="t('clusters.columns.disk')" width="100">
               <template #default="{ row }">
                 <el-progress
                   :percentage="row.disk"
@@ -102,30 +102,30 @@
                 <span style="margin-left: 8px">{{ row.disk }}%</span>
               </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
+            <el-table-column prop="status" :label="t('clusters.columns.status')" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.status === 'online' ? 'success' : 'danger'" size="small">
-                  {{ row.status === 'online' ? '在线' : '离线' }}
+                  {{ row.status === 'online' ? t('status.online') : t('status.offline') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="lastHeartbeat" label="最后心跳" width="150" />
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column prop="lastHeartbeat" :label="t('clusters.columns.lastHeartbeat')" width="150" />
+            <el-table-column :label="t('common.actions')" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button size="small" @click="handleRestart(row)">重启</el-button>
-                <el-button size="small" @click="handleDiagnose(row)">诊断</el-button>
+                <el-button size="small" @click="handleRestart(row)">{{ t('clusters.restart') }}</el-button>
+                <el-button size="small" @click="handleDiagnose(row)">{{ t('clusters.diagnose') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
 
           <div class="cluster-actions">
             <el-button :icon="Setting" @click="handleConfigCluster(cluster)">
-              配置管理
+              {{ t('clusters.config') }}
             </el-button>
-            <el-button :icon="Plus" @click="handleScaleOut(cluster)">扩容</el-button>
-            <el-button :icon="Minus" @click="handleScaleIn(cluster)">缩容</el-button>
+            <el-button :icon="Plus" @click="handleScaleOut(cluster)">{{ t('clusters.scaleOut') }}</el-button>
+            <el-button :icon="Minus" @click="handleScaleIn(cluster)">{{ t('clusters.scaleIn') }}</el-button>
             <el-button type="danger" :icon="Delete" @click="handleDeleteCluster(cluster)">
-              删除集群
+              {{ t('clusters.delete') }}
             </el-button>
           </div>
         </el-collapse-item>
@@ -138,6 +138,9 @@
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Minus, Setting, Delete } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const activeCluster = ref(1)
 
@@ -282,40 +285,40 @@ const getProgressColor = (percentage: number) => {
 }
 
 const handleAddCluster = () => {
-  ElMessage.info('注册集群功能开发中')
+  ElMessage.info(t('clusters.msg.registerWip'))
 }
 
 const handleRestart = (node: any) => {
-  ElMessage.success(`已触发重启：${node.name}`)
+  ElMessage.success(t('clusters.msg.restart', { name: node.name }))
 }
 
 const handleDiagnose = (node: any) => {
-  ElMessage.info(`诊断节点：${node.name}`)
+  ElMessage.info(t('clusters.msg.diagnose', { name: node.name }))
 }
 
 const handleConfigCluster = (cluster: any) => {
-  ElMessage.info(`配置集群：${cluster.name}`)
+  ElMessage.info(t('clusters.msg.config', { name: cluster.name }))
 }
 
 const handleScaleOut = (cluster: any) => {
-  ElMessage.info(`扩容集群：${cluster.name}`)
+  ElMessage.info(t('clusters.msg.scaleOut', { name: cluster.name }))
 }
 
 const handleScaleIn = (cluster: any) => {
-  ElMessage.info(`缩容集群：${cluster.name}`)
+  ElMessage.info(t('clusters.msg.scaleIn', { name: cluster.name }))
 }
 
 const handleDeleteCluster = (cluster: any) => {
-  ElMessageBox.confirm(`确定要删除集群 "${cluster.name}" 吗？`, '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('clusters.msg.confirmDelete', { name: cluster.name }), t('common.confirmDelete'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('common.deleteSuccess'))
     })
     .catch(() => {
-      ElMessage.info('已取消删除')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 </script>

@@ -14,7 +14,7 @@
             </div>
             <div class="kpi-info">
               <div class="kpi-value">{{ clusterStats.healthy }}/{{ clusterStats.total }}</div>
-              <div class="kpi-label">集群健康</div>
+              <div class="kpi-label">{{ t('dashboard.kpis.health') }}</div>
             </div>
           </div>
         </el-card>
@@ -27,7 +27,7 @@
             </div>
             <div class="kpi-info">
               <div class="kpi-value">{{ taskStats.successRate }}%</div>
-              <div class="kpi-label">任务成功率</div>
+              <div class="kpi-label">{{ t('dashboard.kpis.taskSuccess') }}</div>
             </div>
           </div>
         </el-card>
@@ -40,7 +40,7 @@
             </div>
             <div class="kpi-info">
               <div class="kpi-value">{{ taskStats.p95Latency }} ms</div>
-              <div class="kpi-label">延迟 P95</div>
+              <div class="kpi-label">{{ t('dashboard.kpis.latencyP95') }}</div>
             </div>
           </div>
         </el-card>
@@ -53,7 +53,7 @@
             </div>
             <div class="kpi-info">
               <div class="kpi-value">{{ alertStats.count }}</div>
-              <div class="kpi-label">活跃告警</div>
+              <div class="kpi-label">{{ t('dashboard.kpis.activeAlerts') }}</div>
             </div>
           </div>
         </el-card>
@@ -66,13 +66,13 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>任务执行趋势</span>
-              <el-tag size="small" type="info">过去 24 小时</el-tag>
+              <span>{{ t('dashboard.trend.title') }}</span>
+              <el-tag size="small" type="info">{{ t('dashboard.trend.last24h') }}</el-tag>
             </div>
           </template>
           <div class="chart-placeholder">
             <el-icon :size="64" color="#909399"><TrendCharts /></el-icon>
-            <p>图表占位 - 后续接入 ECharts 展示趋势数据</p>
+            <p>{{ t('dashboard.trend.placeholder') }}</p>
           </div>
         </el-card>
       </el-col>
@@ -80,8 +80,8 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>最近告警</span>
-              <el-link type="primary" :underline="false" @click="goToAlerts">查看全部</el-link>
+              <span>{{ t('dashboard.alerts.title') }}</span>
+              <el-link type="primary" :underline="false" @click="goToAlerts">{{ t('common.viewAll') }}</el-link>
             </div>
           </template>
           <div class="alert-list">
@@ -95,7 +95,7 @@
                 <div class="alert-time">{{ alert.time }}</div>
               </div>
             </div>
-            <el-empty v-if="recentAlerts.length === 0" description="暂无告警" :image-size="80" />
+            <el-empty v-if="recentAlerts.length === 0" :description="t('dashboard.alerts.empty')" :image-size="80" />
           </div>
         </el-card>
       </el-col>
@@ -107,27 +107,27 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>最近任务</span>
-              <el-link type="primary" :underline="false" @click="goToTasks">查看全部</el-link>
+              <span>{{ t('dashboard.recentTasks.title') }}</span>
+              <el-link type="primary" :underline="false" @click="goToTasks">{{ t('common.viewAll') }}</el-link>
             </div>
           </template>
           <el-table :data="recentTasks" style="width: 100%">
-            <el-table-column prop="name" label="任务名称" min-width="180" />
-            <el-table-column prop="type" label="类型" width="100" />
-            <el-table-column prop="status" label="状态" width="120">
+            <el-table-column prop="name" :label="t('tasks.columns.name')" min-width="180" />
+            <el-table-column prop="type" :label="t('tasks.columns.type')" width="100" />
+            <el-table-column prop="status" :label="t('tasks.columns.status')" width="120">
               <template #default="{ row }">
                 <el-tag :type="getStatusType(row.status)" size="small">
                   {{ getStatusText(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="lastRun" label="最近运行" width="180" />
-            <el-table-column prop="duration" label="耗时" width="120" />
-            <el-table-column prop="version" label="版本" width="100" />
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column prop="lastRun" :label="t('tasks.columns.lastRun')" width="180" />
+            <el-table-column prop="duration" :label="t('tasks.columns.duration')" width="120" />
+            <el-table-column prop="version" :label="t('tasks.columns.version')" width="100" />
+            <el-table-column :label="t('common.actions')" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button size="small" @click="handleTaskAction(row, 'run')">重试</el-button>
-                <el-button size="small" @click="handleTaskAction(row, 'view')">详情</el-button>
+                <el-button size="small" @click="handleTaskAction(row, 'run')">{{ t('common.retry') }}</el-button>
+                <el-button size="small" @click="handleTaskAction(row, 'view')">{{ t('common.view') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -148,8 +148,10 @@ import {
   Bell,
   TrendCharts
 } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 // 集群统计数据
 const clusterStats = ref({
@@ -239,16 +241,16 @@ const getStatusType = (status: string) => {
 
 const getStatusText = (status: string) => {
   const textMap: Record<string, string> = {
-    running: '运行中',
-    success: '成功',
-    failed: '失败',
-    paused: '暂停'
+    running: t('status.running'),
+    success: t('status.success'),
+    failed: t('status.failed'),
+    paused: t('status.paused')
   }
   return textMap[status] || status
 }
 
 const goToAlerts = () => {
-  ElMessage.info('告警功能开发中')
+  ElMessage.info(t('dashboard.msg.alertsWip'))
 }
 
 const goToTasks = () => {
@@ -257,9 +259,9 @@ const goToTasks = () => {
 
 const handleTaskAction = (row: any, action: string) => {
   if (action === 'run') {
-    ElMessage.success(`已触发重试：${row.name}`)
+    ElMessage.success(t('dashboard.msg.retryTriggered', { name: row.name }))
   } else if (action === 'view') {
-    ElMessage.info(`查看任务详情：${row.name}`)
+    ElMessage.info(t('tasks.msg.view', { name: row.name }))
   }
 }
 </script>

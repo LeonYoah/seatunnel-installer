@@ -2,23 +2,33 @@
   应用根组件
 -->
 <template>
-  <MainLayout />
+  <el-config-provider :locale="elLocale">
+    <MainLayout />
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">
 import MainLayout from './components/layout/MainLayout.vue'
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useUserStore } from './stores/user'
 import { useThemeStore } from './stores/theme'
+import { useI18n } from 'vue-i18n'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
+import en from 'element-plus/dist/locale/en.mjs'
 
 const userStore = useUserStore()
 const themeStore = useThemeStore()
+const { locale } = useI18n()
+
+const elLocale = computed(() => (locale.value === 'zh-CN' ? zhCn : en))
 
 onMounted(() => {
   // 初始化用户状态
   userStore.init()
   // 初始化主题
   themeStore.init()
+  // 设置 html lang
+  document.documentElement.lang = String(locale.value)
 })
 </script>
 

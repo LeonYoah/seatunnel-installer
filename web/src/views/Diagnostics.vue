@@ -8,33 +8,33 @@
       <el-col :xs="24" :md="12">
         <el-card>
           <template #header>
-            <span>一键诊断</span>
+            <span>{{ t('diagnostics.quick.title') }}</span>
           </template>
           <el-form :model="diagForm" label-width="100px">
-            <el-form-item label="诊断范围">
-              <el-select v-model="diagForm.scope" placeholder="请选择" style="width: 100%">
-                <el-option label="整个集群" value="cluster" />
-                <el-option label="指定节点" value="node" />
-                <el-option label="指定任务" value="task" />
+            <el-form-item :label="t('diagnostics.quick.scope')">
+              <el-select v-model="diagForm.scope" :placeholder="t('diagnostics.quick.select')" style="width: 100%">
+                <el-option :label="t('diagnostics.scope.cluster')" value="cluster" />
+                <el-option :label="t('diagnostics.scope.node')" value="node" />
+                <el-option :label="t('diagnostics.scope.task')" value="task" />
               </el-select>
             </el-form-item>
-            <el-form-item label="目标对象">
-              <el-input v-model="diagForm.target" placeholder="如 worker-01 / orders_sync" />
+            <el-form-item :label="t('diagnostics.quick.target')">
+              <el-input v-model="diagForm.target" :placeholder="t('diagnostics.quick.targetPlaceholder')" />
             </el-form-item>
-            <el-form-item label="收集内容">
+            <el-form-item :label="t('diagnostics.quick.items')">
               <el-checkbox-group v-model="diagForm.items">
-                <el-checkbox label="logs">日志文件</el-checkbox>
-                <el-checkbox label="config">配置快照</el-checkbox>
-                <el-checkbox label="thread">线程 Dump</el-checkbox>
-                <el-checkbox label="heap">堆内存 Dump</el-checkbox>
-                <el-checkbox label="gc">GC 日志</el-checkbox>
+                <el-checkbox label="logs">{{ t('diagnostics.items.logs') }}</el-checkbox>
+                <el-checkbox label="config">{{ t('diagnostics.items.config') }}</el-checkbox>
+                <el-checkbox label="thread">{{ t('diagnostics.items.thread') }}</el-checkbox>
+                <el-checkbox label="heap">{{ t('diagnostics.items.heap') }}</el-checkbox>
+                <el-checkbox label="gc">{{ t('diagnostics.items.gc') }}</el-checkbox>
               </el-checkbox-group>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :icon="Tools" @click="handleDiagnose">
-                生成诊断包
+                {{ t('diagnostics.quick.generate') }}
               </el-button>
-              <el-button @click="handleReset">重置</el-button>
+              <el-button @click="handleReset">{{ t('common.cancel') }}</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -44,7 +44,7 @@
       <el-col :xs="24" :md="12">
         <el-card>
           <template #header>
-            <span>常见故障库</span>
+            <span>{{ t('diagnostics.fault.title') }}</span>
           </template>
           <div class="fault-list">
             <div v-for="fault in faults" :key="fault.id" class="fault-item">
@@ -54,16 +54,16 @@
                 </el-tag>
                 <span class="fault-title">{{ fault.title }}</span>
               </div>
-              <div class="fault-pattern">特征：{{ fault.pattern }}</div>
+              <div class="fault-pattern">{{ t('diagnostics.fault.pattern') }}：{{ fault.pattern }}</div>
               <div class="fault-actions">
-                <el-button size="small" @click="handleViewSolution(fault)">查看方案</el-button>
+                <el-button size="small" @click="handleViewSolution(fault)">{{ t('diagnostics.fault.view') }}</el-button>
                 <el-button
                   v-if="fault.fixable"
                   size="small"
                   type="primary"
                   @click="handleAutoFix(fault)"
                 >
-                  一键修复
+                  {{ t('diagnostics.fault.autoFix') }}
                 </el-button>
               </div>
             </div>
@@ -76,15 +76,17 @@
     <el-card class="history-card">
       <template #header>
         <div class="card-header">
-          <span>诊断历史</span>
-          <el-button :icon="Refresh" @click="handleRefresh">刷新</el-button>
+          <span>{{ t('diagnostics.history.title') }}</span>
+          <el-button :icon="Refresh" @click="handleRefresh">{{ t('common.refresh') }}</el-button>
         </div>
       </template>
       <el-table :data="diagHistory" style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="scope" label="范围" width="100" />
-        <el-table-column prop="target" label="目标" width="180" />
-        <el-table-column prop="items" label="收集内容" min-width="200">
+        <el-table-column prop="scope" :label="t('diagnostics.history.scope')" width="100">
+          <template #default="{ row }">{{ getScopeText(row.scope) }}</template>
+        </el-table-column>
+        <el-table-column prop="target" :label="t('diagnostics.history.target')" width="180" />
+        <el-table-column prop="items" :label="t('diagnostics.history.items')" min-width="200">
           <template #default="{ row }">
             <el-tag
               v-for="item in row.items"
@@ -96,22 +98,22 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" :label="t('diagnostics.history.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="size" label="大小" width="100" />
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column prop="size" :label="t('diagnostics.history.size')" width="100" />
+        <el-table-column prop="createdAt" :label="t('diagnostics.history.createdAt')" width="180" />
+        <el-table-column :label="t('common.actions')" width="150" fixed="right">
           <template #default="{ row }">
             <el-button size="small" :icon="Download" @click="handleDownload(row)">
-              下载
+              {{ t('common.download') }}
             </el-button>
             <el-button size="small" type="danger" @click="handleDeleteDiag(row)">
-              删除
+              {{ t('common.delete') }}
             </el-button>
           </template>
         </el-table-column>
@@ -124,6 +126,9 @@
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Tools, Refresh, Download } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 诊断表单
 const diagForm = ref({
@@ -197,13 +202,22 @@ const diagHistory = ref([
 
 const getItemLabel = (item: string) => {
   const labels: Record<string, string> = {
-    logs: '日志',
-    config: '配置',
-    thread: '线程',
-    heap: '堆内存',
-    gc: 'GC'
+    logs: t('diagnostics.items.logs'),
+    config: t('diagnostics.items.config'),
+    thread: t('diagnostics.items.thread'),
+    heap: t('diagnostics.items.heap'),
+    gc: t('diagnostics.items.gc')
   }
   return labels[item] || item
+}
+
+const getScopeText = (scope: string) => {
+  const map: Record<string, string> = {
+    集群: t('diagnostics.scope.cluster'),
+    节点: t('diagnostics.scope.node'),
+    任务: t('diagnostics.scope.task')
+  }
+  return map[scope] || scope
 }
 
 const getStatusType = (status: string) => {
@@ -217,23 +231,23 @@ const getStatusType = (status: string) => {
 
 const getStatusText = (status: string) => {
   const textMap: Record<string, string> = {
-    completed: '已完成',
-    running: '进行中',
-    failed: '失败'
+    completed: t('status.completed'),
+    running: t('status.processing'),
+    failed: t('status.failed')
   }
   return textMap[status] || status
 }
 
 const handleDiagnose = () => {
   if (!diagForm.value.target) {
-    ElMessage.warning('请输入目标对象')
+    ElMessage.warning(t('diagnostics.msg.targetRequired'))
     return
   }
   if (diagForm.value.items.length === 0) {
-    ElMessage.warning('请选择至少一项收集内容')
+    ElMessage.warning(t('diagnostics.msg.itemsRequired'))
     return
   }
-  ElMessage.success('诊断任务已创建，正在收集数据...')
+  ElMessage.success(t('diagnostics.msg.created'))
 }
 
 const handleReset = () => {
@@ -245,42 +259,42 @@ const handleReset = () => {
 }
 
 const handleViewSolution = (fault: any) => {
-  ElMessage.info(`查看故障解决方案：${fault.title}`)
+  ElMessage.info(t('diagnostics.fault.viewSolution', { title: fault.title }))
 }
 
 const handleAutoFix = (fault: any) => {
-  ElMessageBox.confirm(`确定要自动修复 "${fault.title}" 吗？`, '确认修复', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('diagnostics.fault.confirmAutoFix', { title: fault.title }), t('diagnostics.fault.autoFix'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('修复成功')
+      ElMessage.success(t('diagnostics.fault.fixed'))
     })
     .catch(() => {
-      ElMessage.info('已取消修复')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleRefresh = () => {
-  ElMessage.success('刷新成功')
+  ElMessage.success(t('common.refreshSuccess'))
 }
 
 const handleDownload = (row: any) => {
-  ElMessage.success(`开始下载诊断包 #${row.id}`)
+  ElMessage.success(t('diagnostics.history.downloading', { id: row.id }))
 }
 
 const handleDeleteDiag = (row: any) => {
-  ElMessageBox.confirm(`确定要删除诊断包 #${row.id} 吗？`, '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('diagnostics.history.confirmDelete', { id: row.id }), t('common.confirmDelete'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('common.deleteSuccess'))
     })
     .catch(() => {
-      ElMessage.info('已取消删除')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 </script>

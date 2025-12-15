@@ -8,8 +8,8 @@
       <div class="logo">
         <img src="/logo.png" alt="SeaTunnel" class="logo-img" />
         <div class="logo-text">
-          <h1 class="logo-title">SeaTunnel</h1>
-          <p class="logo-subtitle">企业级管理平台</p>
+          <h1 class="logo-title">{{ t('app.name') }}</h1>
+          <p class="logo-subtitle">{{ t('app.subtitle') }}</p>
         </div>
       </div>
     </div>
@@ -18,17 +18,18 @@
         :icon="themeIcon"
         circle
         @click="toggleTheme"
-        :title="themeMode === 'dark' ? '切换到明亮模式' : '切换到暗色模式'"
+        :title="themeMode === 'dark' ? t('theme.toLight') : t('theme.toDark')"
       />
+      <LanguageSwitcher />
       <el-dropdown trigger="click">
         <div class="user-info">
           <el-avatar :size="32" icon="User" />
-          <span class="username">{{ username || '管理员' }}</span>
+          <span class="username">{{ username || t('user.admin') }}</span>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item @click="handleProfile">个人信息</el-dropdown-item>
-            <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+            <el-dropdown-item @click="handleProfile">{{ t('user.profile') }}</el-dropdown-item>
+            <el-dropdown-item divided @click="handleLogout">{{ t('user.logout') }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -43,10 +44,13 @@ import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import { ElMessage } from 'element-plus'
 import { Sunny, Moon } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+import LanguageSwitcher from '@/components/shared/LanguageSwitcher.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const themeStore = useThemeStore()
+const { t } = useI18n()
 
 const username = computed(() => userStore.username)
 const themeMode = computed(() => themeStore.mode)
@@ -57,12 +61,12 @@ const toggleTheme = () => {
 }
 
 const handleProfile = () => {
-  ElMessage.info('个人信息功能开发中')
+  ElMessage.info(t('tips.profileWip'))
 }
 
 const handleLogout = () => {
   userStore.logout()
-  ElMessage.success('已退出登录')
+  ElMessage.success(t('tips.loggedOut'))
   router.push('/login')
 }
 </script>
@@ -73,7 +77,7 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow);
@@ -91,8 +95,8 @@ const handleLogout = () => {
 }
 
 .logo-img {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
 }
 
@@ -119,7 +123,7 @@ const handleLogout = () => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
 .user-info {

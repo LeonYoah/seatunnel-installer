@@ -4,37 +4,37 @@
 <template>
   <el-card class="step-card">
     <template #header>
-      <span>安装配置</span>
+      <span>{{ t('install.config.title') }}</span>
     </template>
     <el-form :model="form" label-width="140px">
       <!-- 基础配置 -->
       <div class="form-section">
-        <h3>基础配置</h3>
-        <el-form-item label="SeaTunnel 版本">
+        <h3>{{ t('install.config.basic') }}</h3>
+        <el-form-item :label="t('install.config.version')">
           <el-select v-model="form.version" style="width: 300px">
             <el-option label="2.3.12" value="2.3.12" />
             <el-option label="2.3.11" value="2.3.11" />
             <el-option label="2.3.10" value="2.3.10" />
           </el-select>
         </el-form-item>
-        <el-form-item label="安装模式">
+        <el-form-item :label="t('install.config.installMode')">
           <el-radio-group v-model="form.installMode">
-            <el-radio label="online">在线安装</el-radio>
-            <el-radio label="offline">离线安装</el-radio>
+            <el-radio label="online">{{ t('install.config.online') }}</el-radio>
+            <el-radio label="offline">{{ t('install.config.offline') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="安装目录">
+        <el-form-item :label="t('install.config.baseDir')">
           <el-input v-model="form.baseDir" style="width: 500px" />
         </el-form-item>
       </div>
 
       <!-- 部署配置 -->
       <div class="form-section">
-        <h3>部署配置</h3>
-        <el-form-item label="部署模式">
+        <h3>{{ t('install.config.deploy') }}</h3>
+        <el-form-item :label="t('install.config.deployMode')">
           <el-radio-group v-model="form.deployMode">
-            <el-radio label="separated">分离模式</el-radio>
-            <el-radio label="hybrid">混合模式</el-radio>
+            <el-radio label="separated">{{ t('install.config.separated') }}</el-radio>
+            <el-radio label="hybrid">{{ t('install.config.hybrid') }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <template v-if="form.deployMode === 'separated'">
@@ -46,7 +46,7 @@
           </el-form-item>
         </template>
         <template v-else>
-          <el-form-item label="集群节点">
+          <el-form-item :label="t('install.config.clusterNodes')">
             <el-input v-model="form.clusterNodes" style="width: 500px" />
           </el-form-item>
         </template>
@@ -54,15 +54,17 @@
     </el-form>
 
     <div class="step-actions">
-      <el-button type="primary" @click="handleNext">下一步</el-button>
+      <el-button type="primary" @click="handleNext">{{ t('common.next') }}</el-button>
     </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['next'])
+const { t } = useI18n()
 
 const form = ref({
   version: '2.3.12',

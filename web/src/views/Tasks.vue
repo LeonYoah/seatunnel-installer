@@ -6,9 +6,9 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>任务管理</span>
+          <span>{{ t('menu.tasks') }}</span>
           <div class="header-actions">
-            <el-button type="primary" :icon="Plus" @click="handleCreate">新建任务</el-button>
+            <el-button type="primary" :icon="Plus" @click="handleCreate">{{ t('common.create') }}</el-button>
           </div>
         </div>
       </template>
@@ -17,51 +17,53 @@
       <div class="filter-bar">
         <el-input
           v-model="searchText"
-          placeholder="搜索任务名称"
+          :placeholder="t('tasks.searchPlaceholder')"
           :prefix-icon="Search"
           style="width: 300px"
           clearable
         />
-        <el-select v-model="filterStatus" placeholder="状态筛选" style="width: 150px" clearable>
-          <el-option label="全部" value="" />
-          <el-option label="运行中" value="running" />
-          <el-option label="成功" value="success" />
-          <el-option label="失败" value="failed" />
-          <el-option label="暂停" value="paused" />
+        <el-select v-model="filterStatus" :placeholder="t('common.statusFilter')" style="width: 150px" clearable>
+          <el-option :label="t('common.all')" value="" />
+          <el-option :label="t('status.running')" value="running" />
+          <el-option :label="t('status.success')" value="success" />
+          <el-option :label="t('status.failed')" value="failed" />
+          <el-option :label="t('status.paused')" value="paused" />
         </el-select>
-        <el-select v-model="filterType" placeholder="类型筛选" style="width: 150px" clearable>
-          <el-option label="全部" value="" />
-          <el-option label="实时" value="实时" />
-          <el-option label="批处理" value="批处理" />
+        <el-select v-model="filterType" :placeholder="t('common.typeFilter')" style="width: 150px" clearable>
+          <el-option :label="t('common.all')" value="" />
+          <el-option :label="t('tasks.type.streaming')" value="实时" />
+          <el-option :label="t('tasks.type.batch')" value="批处理" />
         </el-select>
-        <el-button :icon="Refresh" @click="handleRefresh">刷新</el-button>
+        <el-button :icon="Refresh" @click="handleRefresh">{{ t('common.refresh') }}</el-button>
       </div>
 
       <!-- 任务列表 -->
       <el-table :data="filteredTasks" style="width: 100%; margin-top: 20px">
-        <el-table-column prop="name" label="任务名称" min-width="180">
+        <el-table-column prop="name" :label="t('tasks.columns.name')" min-width="180">
           <template #default="{ row }">
             <el-link type="primary" @click="handleView(row)">{{ row.name }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="type" label="类型" width="100" />
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="type" :label="t('tasks.columns.type')" width="100">
+          <template #default="{ row }">{{ getTypeText(row.type) }}</template>
+        </el-table-column>
+        <el-table-column prop="status" :label="t('tasks.columns.status')" width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastRun" label="最近运行" width="180" />
-        <el-table-column prop="duration" label="耗时" width="120" />
-        <el-table-column prop="version" label="版本" width="100" />
-        <el-table-column prop="creator" label="创建者" width="120" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column prop="lastRun" :label="t('tasks.columns.lastRun')" width="180" />
+        <el-table-column prop="duration" :label="t('tasks.columns.duration')" width="120" />
+        <el-table-column prop="version" :label="t('tasks.columns.version')" width="100" />
+        <el-table-column prop="creator" :label="t('tasks.columns.creator')" width="120" />
+        <el-table-column :label="t('common.actions')" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleRun(row)">运行</el-button>
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" @click="handleView(row)">详情</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" @click="handleRun(row)">{{ t('common.run') }}</el-button>
+            <el-button size="small" @click="handleEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" @click="handleView(row)">{{ t('common.view') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -84,6 +86,9 @@
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 搜索和筛选
 const searchText = ref('')
@@ -211,46 +216,54 @@ const getStatusType = (status: string) => {
 
 const getStatusText = (status: string) => {
   const textMap: Record<string, string> = {
-    running: '运行中',
-    success: '成功',
-    failed: '失败',
-    paused: '暂停'
+    running: t('status.running'),
+    success: t('status.success'),
+    failed: t('status.failed'),
+    paused: t('status.paused')
   }
   return textMap[status] || status
 }
 
+const getTypeText = (type: string) => {
+  const textMap: Record<string, string> = {
+    '实时': t('tasks.type.streaming'),
+    '批处理': t('tasks.type.batch')
+  }
+  return textMap[type] || type
+}
+
 const handleCreate = () => {
-  ElMessage.info('新建任务功能开发中')
+  ElMessage.info(t('tasks.msg.createWip'))
 }
 
 const handleRun = (row: any) => {
-  ElMessage.success(`已触发运行：${row.name}`)
+  ElMessage.success(t('tasks.msg.runTriggered', { name: row.name }))
 }
 
 const handleEdit = (row: any) => {
-  ElMessage.info(`编辑任务：${row.name}`)
+  ElMessage.info(t('tasks.msg.edit', { name: row.name }))
 }
 
 const handleView = (row: any) => {
-  ElMessage.info(`查看任务详情：${row.name}`)
+  ElMessage.info(t('tasks.msg.view', { name: row.name }))
 }
 
 const handleDelete = (row: any) => {
-  ElMessageBox.confirm(`确定要删除任务 "${row.name}" 吗？`, '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('tasks.msg.confirmDelete', { name: row.name }), t('common.confirmDelete'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('common.deleteSuccess'))
     })
     .catch(() => {
-      ElMessage.info('已取消删除')
+      ElMessage.info(t('common.cancelled'))
     })
 }
 
 const handleRefresh = () => {
-  ElMessage.success('刷新成功')
+  ElMessage.success(t('common.refreshSuccess'))
 }
 </script>
 
