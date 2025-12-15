@@ -143,6 +143,28 @@ export default {
 	        start: 'Start cluster'
 	      }
 	    },
+    complete: {
+      title: 'SeaTunnel cluster deployed!',
+      subtitle: 'Congratulations! Your SeaTunnel cluster is up and running.',
+      clusterInfo: 'Cluster Info',
+      clusterName: 'Cluster Name',
+      version: 'SeaTunnel Version',
+      deployMode: 'Deploy Mode',
+      nodeCount: 'Node Count',
+      installPath: 'Install Path',
+      access: 'Access',
+      masterHttp: 'Master HTTP:',
+      quickStart: 'Quick Start',
+      stepCheck: 'Check cluster status',
+      stepSubmit: 'Submit the first job',
+      stepSubmitDesc: 'Go to Tasks to create and submit a job',
+      stepMonitor: 'Monitor cluster',
+      stepMonitorDesc: 'View node status and resources in Clusters',
+      goConsole: 'Go to Console',
+      viewClusters: 'View Clusters',
+      downloadReport: 'Download Install Report',
+      reportStart: 'Starting download of install report'
+    },
     plugins: {
       selected: '{count} plugins selected',
       source: 'Source Connectors',
@@ -257,28 +279,6 @@ export default {
       disabled: 'Disabled successfully',
       view: 'View plugin detail: {name}'
     }
-  },
-  'install.complete': {
-    title: 'SeaTunnel cluster deployed!',
-    subtitle: 'Congratulations! Your SeaTunnel cluster is up and running.',
-    clusterInfo: 'Cluster Info',
-    clusterName: 'Cluster Name',
-    version: 'SeaTunnel Version',
-    deployMode: 'Deploy Mode',
-    nodeCount: 'Node Count',
-    installPath: 'Install Path',
-    access: 'Access',
-    masterHttp: 'Master HTTP:',
-    quickStart: 'Quick Start',
-    stepCheck: 'Check cluster status',
-    stepSubmit: 'Submit the first job',
-    stepSubmitDesc: 'Go to Tasks to create and submit a job',
-    stepMonitor: 'Monitor cluster',
-    stepMonitorDesc: 'View node status and resources in Clusters',
-    goConsole: 'Go to Console',
-    viewClusters: 'View Clusters',
-    downloadReport: 'Download Install Report',
-    reportStart: 'Starting download of install report'
   },
   dashboard: {
     kpis: {
@@ -395,16 +395,51 @@ export default {
     installAgent: 'Install Agent',
     uninstallAgent: 'Uninstall Agent',
     testConnection: 'Test Connection',
+    tabs: {
+      list: 'Host List',
+      monitor: 'Monitor Panel',
+      alerts: 'Alert Rules'
+    },
+    actions: {
+      scaleCluster: 'Scale Cluster',
+      restart: 'Restart'
+    },
+    expandSections: {
+      basicInfo: 'Basic Information',
+      networkInfo: 'Network Interfaces',
+      diskInfo: 'Disk Information'
+    },
     columns: {
       name: 'Host Name',
       ip: 'IP Address',
+      ipAddress: 'IP Address',
       port: 'SSH Port',
       user: 'SSH User',
       agentStatus: 'Agent Status',
       hostStatus: 'Host Status',
       cpu: 'CPU Usage',
+      cpuUsage: 'CPU Usage',
       memory: 'Memory Usage',
+      memoryUsage: 'Memory Usage',
+      networkIO: 'Network IO',
+      avgLoad: 'Average Load',
       lastHeartbeat: 'Last Heartbeat'
+    },
+    details: {
+      cpuModel: 'CPU Model',
+      totalMemory: 'Total Memory',
+      registerTime: 'Register Time',
+      os: 'Operating System',
+      kernel: 'Kernel Version',
+      hostname: 'Hostname'
+    },
+    disk: {
+      name: 'Disk Name',
+      used: 'Used',
+      total: 'Total',
+      usage: 'Usage',
+      ioUtil: 'IO Util',
+      mountPoint: 'Mount Point'
     },
     form: {
       name: 'Host Name',

@@ -60,10 +60,10 @@
         <el-table-column prop="creator" :label="t('tasks.columns.creator')" width="120" />
         <el-table-column :label="t('common.actions')" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleRun(row)">{{ t('common.run') }}</el-button>
-            <el-button size="small" @click="handleEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-button size="small" @click="handleView(row)">{{ t('common.view') }}</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
+            <el-button size="small" text @click="handleRun(row)">{{ t('common.run') }}</el-button>
+            <el-button size="small" text @click="handleEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" text @click="handleView(row)">{{ t('common.view') }}</el-button>
+            <el-button size="small" type="danger" text @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>

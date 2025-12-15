@@ -150,6 +150,28 @@ export default {
         distribute: '分发到节点',
         start: '启动集群'
       }
+    },
+    complete: {
+      title: 'SeaTunnel 集群部署成功！',
+      subtitle: '恭喜！您的 SeaTunnel 集群已成功部署并启动。',
+      clusterInfo: '集群信息',
+      clusterName: '集群名称',
+      version: 'SeaTunnel 版本',
+      deployMode: '部署模式',
+      nodeCount: '节点数量',
+      installPath: '安装路径',
+      access: '访问地址',
+      masterHttp: 'Master HTTP 端口:',
+      quickStart: '快速开始',
+      stepCheck: '查看集群状态',
+      stepSubmit: '提交第一个任务',
+      stepSubmitDesc: '前往任务管理页面创建和提交数据集成任务',
+      stepMonitor: '监控集群',
+      stepMonitorDesc: '在集群管理页面查看节点状态和资源使用情况',
+      goConsole: '进入控制台',
+      viewClusters: '查看集群',
+      downloadReport: '下载安装报告',
+      reportStart: '开始下载安装报告'
     }
   },
   diagnostics: {
@@ -200,31 +222,7 @@ export default {
       created: '诊断任务已创建，正在收集数据...'
     }
   },
-  // 合并完整安装完成文案
-  // 为避免重复层级，这里放在 install.complete 下
-  //（前面的 install 已定义 steps/config/precheck/install）
-  'install.complete': {
-    title: 'SeaTunnel 集群部署成功！',
-    subtitle: '恭喜！您的 SeaTunnel 集群已成功部署并启动。',
-    clusterInfo: '集群信息',
-    clusterName: '集群名称',
-    version: 'SeaTunnel 版本',
-    deployMode: '部署模式',
-    nodeCount: '节点数量',
-    installPath: '安装路径',
-    access: '访问地址',
-    masterHttp: 'Master HTTP 端口:',
-    quickStart: '快速开始',
-    stepCheck: '查看集群状态',
-    stepSubmit: '提交第一个任务',
-    stepSubmitDesc: '前往任务管理页面创建和提交数据集成任务',
-    stepMonitor: '监控集群',
-    stepMonitorDesc: '在集群管理页面查看节点状态和资源使用情况',
-    goConsole: '进入控制台',
-    viewClusters: '查看集群',
-    downloadReport: '下载安装报告',
-    reportStart: '开始下载安装报告'
-  },
+  
   clusters: {
     overview: {
       totalClusters: '集群总数',
@@ -401,16 +399,51 @@ export default {
     installAgent: '安装 Agent',
     uninstallAgent: '卸载 Agent',
     testConnection: '测试连接',
+    tabs: {
+      list: '主机列表',
+      monitor: '监控面板',
+      alerts: '告警规则'
+    },
+    actions: {
+      scaleCluster: '集群伸缩',
+      restart: '重启'
+    },
+    expandSections: {
+      basicInfo: '基本信息',
+      networkInfo: '网卡信息',
+      diskInfo: '磁盘信息'
+    },
     columns: {
       name: '主机名称',
       ip: 'IP 地址',
+      ipAddress: 'IP 地址',
       port: 'SSH 端口',
       user: 'SSH 用户',
       agentStatus: 'Agent 状态',
       hostStatus: '主机状态',
       cpu: 'CPU 使用率',
+      cpuUsage: 'CPU 利用率',
       memory: '内存使用率',
+      memoryUsage: '内存利用率',
+      networkIO: '网络 IO',
+      avgLoad: 'Average Load',
       lastHeartbeat: '最后心跳'
+    },
+    details: {
+      cpuModel: 'CPU 型号',
+      totalMemory: '内存总量',
+      registerTime: '注册时间',
+      os: '操作系统',
+      kernel: '内核版本',
+      hostname: '主机名'
+    },
+    disk: {
+      name: '磁盘名',
+      used: '已使用',
+      total: '总容量',
+      usage: '利用率',
+      ioUtil: 'IO Util',
+      mountPoint: '挂载点'
     },
     form: {
       name: '主机名称',

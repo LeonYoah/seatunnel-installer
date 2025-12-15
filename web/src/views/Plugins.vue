@@ -69,7 +69,7 @@
           <template #default="{ row }">
             <template v-if="row.status === 'installed'">
               <el-button size="small" @click="handleUpgrade(row)">{{ t('plugins.upgrade') }}</el-button>
-              <el-button size="small" type="danger" @click="handleDisable(row)">{{ t('plugins.disable') }}</el-button>
+              <el-button size="small" type="danger" text @click="handleDisable(row)">{{ t('plugins.disable') }}</el-button>
             </template>
             <template v-else>
               <el-button size="small" type="primary" @click="handleInstall(row)">

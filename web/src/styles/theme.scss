@@ -16,8 +16,8 @@
   --primary: #5a90e5;
   --primary-2: #1656cc;
   --success: #16a34a;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  --warning: #ff7a45; 
+  --error: #ff4d4f;
   --shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
 
   /* 同步 Element Plus 变量（明亮模式） */
@@ -38,6 +38,11 @@
   --el-box-shadow: var(--shadow);
   --el-box-shadow-light: var(--shadow);
   --el-box-shadow-dark: var(--shadow);
+  /* Soft backgrounds for text buttons hover */
+  --primary-soft-bg: rgba(90, 144, 229, 0.10);
+  --warning-soft-bg: rgba(255, 122, 69, 0.12);
+  --error-soft-bg: rgba(255, 77, 79, 0.12);
+  --text-soft-bg: rgba(31, 41, 55, 0.06);
 }
 
 .el-button {
@@ -59,6 +64,28 @@
 }
 
 /* ========================================
+   全局 text 按钮样式（更克制的链接风格）
+   ======================================== */
+.el-button.is-text {
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.el-button.is-text.el-button--primary { color: var(--primary); }
+.el-button.is-text.el-button--success { color: var(--success); }
+.el-button.is-text.el-button--warning { color: var(--warning); }
+.el-button.is-text.el-button--danger  { color: var(--error); }
+.el-button.is-text.el-button--info    { color: var(--muted); }
+.el-button.is-text:not(.is-disabled):hover {
+  background-color: var(--text-soft-bg);
+  text-decoration: underline;
+}
+.el-button.is-text.el-button--primary:not(.is-disabled):hover { background-color: var(--primary-soft-bg); }
+.el-button.is-text.el-button--warning:not(.is-disabled):hover { background-color: var(--warning-soft-bg); }
+.el-button.is-text.el-button--danger:not(.is-disabled):hover  { background-color: var(--error-soft-bg); }
+
+/* ========================================
    暗色模式
    ======================================== */
 html.dark {
@@ -72,9 +99,15 @@ html.dark {
   --primary:   #001f4d;  /* 更黑的海军蓝，默认态 */
   --primary-2: #0041b3;  /* 稍亮的蓝，用于 hover/active */
   --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  --warning: #ff7a45; 
+  --error: #ff4d4f;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  /* Soft backgrounds for text buttons hover (dark) */
+  --primary-soft-bg: rgba(90, 144, 229, 0.18);
+  --warning-soft-bg: rgba(255, 122, 69, 0.18);
+  --error-soft-bg: rgba(255, 77, 79, 0.18);
+  --text-soft-bg: rgba(230, 237, 247, 0.08);
 
   // Element Plus CSS 变量覆盖
   --el-bg-color: var(--surface);
@@ -116,8 +149,7 @@ html.dark {
 
   // 暗色模式背景渐变
   body {
-    background: radial-gradient(900px 500px at 0% 0%, rgba(59, 130, 246, 0.18), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(16, 185, 129, 0.12), transparent 60%), var(--bg);
+    background: var(--bg);
   }
 
   /* ========================================
@@ -135,6 +167,20 @@ html.dark {
       border-color: var(--border) !important;
       color: var(--text) !important;
     }
+  }
+
+  // 文本按钮统一主色强调（Option B）
+  .el-button.is-text,
+  .el-button.is-text.el-button--primary,
+  .el-button.is-text.el-button--success,
+  .el-button.is-text.el-button--warning,
+  .el-button.is-text.el-button--danger,
+  .el-button.is-text.el-button--info {
+    color: var(--text);
+  }
+  .el-button.is-text:not(.is-disabled):hover {
+    color: var(--primary);
+    background-color: var(--text-soft-bg);
   }
 
   // 按钮
@@ -206,8 +252,28 @@ html.dark {
     }
 
     &.is-selected {
-      background: rgba(59, 130, 246, 0.2) !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-left: 2px solid var(--primary);
       font-weight: 600;
+    }
+  }
+
+  // 多选选择器标签（chips）在暗色模式下提升对比度
+  .el-select.is-multiple {
+    .el-select__tags {
+      .el-tag {
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-color: var(--border) !important;
+        color: var(--text) !important;
+
+        .el-tag__close {
+          color: var(--muted) !important;
+          &:hover {
+            color: var(--text) !important;
+            background: transparent !important;
+          }
+        }
+      }
     }
   }
 
@@ -238,27 +304,31 @@ html.dark {
     background: rgba(255, 255, 255, 0.05);
 
     &--primary {
-      background: rgba(59, 130, 246, 0.16);
-      border-color: rgba(59, 130, 246, 0.28);
-      color: #cfe1ff;
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.18);
+      color: var(--text);
+      border-left: 2px solid var(--primary);
     }
 
     &--success {
-      background: rgba(16, 185, 129, 0.1);
-      border-color: rgba(16, 185, 129, 0.28);
-      color: #c9ffe9;
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.18);
+      color: var(--text);
+      border-left: 2px solid var(--primary);
     }
 
     &--warning {
-      background: rgba(245, 158, 11, 0.1);
-      border-color: rgba(245, 158, 11, 0.3);
-      color: #ffe7b4;
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.18);
+      color: var(--text);
+      border-left: 2px solid var(--primary);
     }
 
     &--danger {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: rgba(239, 68, 68, 0.3);
-      color: #ffd0d0;
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.18);
+      color: var(--text);
+      border-left: 2px solid var(--primary);
     }
   }
 
@@ -276,8 +346,8 @@ html.dark {
       }
 
       &.is-active {
-        background: rgba(59, 130, 246, 0.16);
-        border-color: rgba(59, 130, 246, 0.28);
+        background: rgba(255, 255, 255, 0.06);
+        border-left: 2px solid var(--primary);
         color: var(--text);
       }
     }
@@ -319,6 +389,12 @@ html.dark {
     }
   }
 
+  // 选中时的 label 文本保持高对比
+  .el-checkbox.is-checked .el-checkbox__label,
+  .el-radio.is-checked .el-radio__label {
+    color: var(--text) !important;
+  }
+
   // 开关
   .el-switch {
     &__core {
@@ -349,9 +425,9 @@ html.dark {
     }
 
     .el-pager li.is-active {
-      background: rgba(59, 130, 246, 0.16);
-      color: var(--text);
-      border-color: rgba(59, 130, 246, 0.28);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--primary);
+      border-color: var(--border);
     }
   }
 
@@ -380,8 +456,9 @@ html.dark {
     color: var(--text) !important;
 
     &--info {
-      background: rgba(59, 130, 246, 0.15) !important;
-      border-color: rgba(59, 130, 246, 0.3) !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-left: 2px solid var(--primary) !important;
+      border-color: var(--border) !important;
 
       * {
         color: var(--text) !important;
@@ -414,12 +491,12 @@ html.dark {
 
     &.is-finish {
       .el-step__icon {
-        border-color: var(--primary) !important;
-        color: var(--primary) !important;
+        border-color: var(--border) !important;
+        color: var(--text) !important;
       }
 
       .el-step__line {
-        background: var(--primary) !important;
+        background: var(--border) !important;
       }
     }
 

@@ -126,8 +126,8 @@
             <el-table-column prop="version" :label="t('tasks.columns.version')" width="100" />
             <el-table-column :label="t('common.actions')" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button size="small" @click="handleTaskAction(row, 'run')">{{ t('common.retry') }}</el-button>
-                <el-button size="small" @click="handleTaskAction(row, 'view')">{{ t('common.view') }}</el-button>
+                <el-button size="small" text @click="handleTaskAction(row, 'run')">{{ t('common.retry') }}</el-button>
+                <el-button size="small" text @click="handleTaskAction(row, 'view')">{{ t('common.view') }}</el-button>
               </template>
             </el-table-column>
           </el-table>

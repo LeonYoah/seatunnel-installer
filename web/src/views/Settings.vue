@@ -101,9 +101,9 @@
         <el-table-column prop="createdAt" :label="t('settings.users.columns.createdAt')" width="180" />
         <el-table-column :label="t('common.actions')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEditUser(row)">{{ t('common.edit') }}</el-button>
-            <el-button size="small" @click="handleResetPassword(row)">{{ t('settings.users.resetPwd') }}</el-button>
-            <el-button size="small" type="danger" @click="handleDeleteUser(row)">
+            <el-button size="small" text @click="handleEditUser(row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" text @click="handleResetPassword(row)">{{ t('settings.users.resetPwd') }}</el-button>
+            <el-button size="small" type="danger" text @click="handleDeleteUser(row)">
               {{ t('common.delete') }}
             </el-button>
           </template>

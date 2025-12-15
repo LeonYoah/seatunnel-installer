@@ -112,8 +112,8 @@
             <el-table-column prop="lastHeartbeat" :label="t('clusters.columns.lastHeartbeat')" width="150" />
             <el-table-column :label="t('common.actions')" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button size="small" @click="handleRestart(row)">{{ t('clusters.restart') }}</el-button>
-                <el-button size="small" @click="handleDiagnose(row)">{{ t('clusters.diagnose') }}</el-button>
+                <el-button size="small" text @click="handleRestart(row)">{{ t('clusters.restart') }}</el-button>
+                <el-button size="small" text @click="handleDiagnose(row)">{{ t('clusters.diagnose') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -124,7 +124,7 @@
             </el-button>
             <el-button :icon="Plus" @click="handleScaleOut(cluster)">{{ t('clusters.scaleOut') }}</el-button>
             <el-button :icon="Minus" @click="handleScaleIn(cluster)">{{ t('clusters.scaleIn') }}</el-button>
-            <el-button type="danger" :icon="Delete" @click="handleDeleteCluster(cluster)">
+            <el-button type="danger" text :icon="Delete" @click="handleDeleteCluster(cluster)">
               {{ t('clusters.delete') }}
             </el-button>
           </div>
@@ -279,6 +279,10 @@ const clusters = ref([
 ])
 
 const getProgressColor = (percentage: number) => {
+  // 暗黑模式下统一主色强调
+  if (document.documentElement.classList.contains('dark')) {
+    return 'var(--primary)'
+  }
   if (percentage < 60) return '#67c23a'
   if (percentage < 80) return '#e6a23c'
   return '#f56c6c'

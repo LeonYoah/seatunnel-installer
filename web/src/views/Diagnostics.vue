@@ -112,7 +112,7 @@
             <el-button size="small" :icon="Download" @click="handleDownload(row)">
               {{ t('common.download') }}
             </el-button>
-            <el-button size="small" type="danger" @click="handleDeleteDiag(row)">
+            <el-button size="small" type="danger" text @click="handleDeleteDiag(row)">
               {{ t('common.delete') }}
             </el-button>
           </template>

@@ -4,18 +4,17 @@
 -->
 <template>
   <div class="hosts">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ t('menu.hosts') }}</span>
-          <div class="header-actions">
-            <el-button type="primary" :icon="Plus" @click="handleAddHost">{{ t('hosts.register') }}</el-button>
-          </div>
-        </div>
+    <!-- 页面导航标签 -->
+    <PageTabs :tabs="pageTabs" :active-key="activeTab" @tab-change="handleTabChange">
+      <template #actions>
+        <el-button :icon="Refresh" @click="handleRefresh">{{ t('common.refresh') }}</el-button>
+        <el-button type="primary" :icon="Plus" @click="handleAddHost">{{ t('hosts.register') }}</el-button>
       </template>
+    </PageTabs>
 
-      <!-- 筛选栏 -->
-      <div class="filter-bar">
+    <el-card>
+      <!-- 工具栏 -->
+      <div class="toolbar">
         <el-input
           v-model="searchText"
           :placeholder="t('hosts.searchPlaceholder')"
@@ -29,69 +28,143 @@
           <el-option :label="t('status.offline')" value="offline" />
           <el-option :label="t('hosts.agentNotInstalled')" value="no-agent" />
         </el-select>
-        <el-button :icon="Refresh" @click="handleRefresh">{{ t('common.refresh') }}</el-button>
       </div>
 
       <!-- 主机列表 -->
-      <el-table :data="filteredHosts" style="width: 100%; margin-top: 20px">
-        <el-table-column prop="name" :label="t('hosts.columns.name')" min-width="150" />
-        <el-table-column prop="ip" :label="t('hosts.columns.ip')" width="150" />
-        <el-table-column prop="port" :label="t('hosts.columns.port')" width="100" />
-        <el-table-column prop="user" :label="t('hosts.columns.user')" width="120" />
-        <el-table-column prop="agentStatus" :label="t('hosts.columns.agentStatus')" width="120">
+      <el-table 
+        :data="filteredHosts" 
+        :row-class-name="getRowClassName"
+        class="hosts-table"
+        style="width: 100%; margin-top: 16px"
+      >
+        <!-- 展开列 -->
+        <el-table-column type="expand" width="50">
+          <template #default="{ row }">
+            <div class="expand-content">
+              <!-- 基本信息 -->
+              <div class="info-section">
+                <h4 class="section-title">{{ t('hosts.expandSections.basicInfo') }}</h4>
+                <el-descriptions :column="3" border size="small">
+                  <el-descriptions-item :label="t('hosts.details.cpuModel')">{{ row.cpuModel }}</el-descriptions-item>
+                  <el-descriptions-item :label="t('hosts.details.totalMemory')">{{ row.totalMemory }}</el-descriptions-item>
+                  <el-descriptions-item :label="t('hosts.details.registerTime')">{{ row.registerTime }}</el-descriptions-item>
+                  <el-descriptions-item :label="t('hosts.details.os')">{{ row.os }}</el-descriptions-item>
+                  <el-descriptions-item :label="t('hosts.details.kernel')">{{ row.kernel }}</el-descriptions-item>
+                  <el-descriptions-item :label="t('hosts.details.hostname')">{{ row.hostname }}</el-descriptions-item>
+                </el-descriptions>
+              </div>
+
+              <!-- 网卡信息 -->
+              <div class="info-section">
+                <h4 class="section-title">{{ t('hosts.expandSections.networkInfo') }}</h4>
+                <el-descriptions :column="2" border size="small">
+                  <el-descriptions-item 
+                    v-for="(nic, index) in row.networkInterfaces" 
+                    :key="index"
+                    :label="nic.name"
+                  >
+                    {{ nic.ip }} / {{ nic.speed }}
+                  </el-descriptions-item>
+                </el-descriptions>
+              </div>
+
+              <!-- 磁盘信息 -->
+              <div class="info-section">
+                <h4 class="section-title">{{ t('hosts.expandSections.diskInfo') }}</h4>
+                <el-table :data="row.disks" size="small" border class="disk-table">
+                  <el-table-column prop="name" :label="t('hosts.disk.name')" width="120" />
+                  <el-table-column prop="used" :label="t('hosts.disk.used')" width="120" />
+                  <el-table-column prop="total" :label="t('hosts.disk.total')" width="120" />
+                  <el-table-column :label="t('hosts.disk.usage')" width="200">
+                    <template #default="{ row: disk }">
+                      <el-progress
+                        :percentage="disk.usage"
+                        :color="getProgressColor(disk.usage)"
+                        :show-text="true"
+                      />
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="ioUtil" :label="t('hosts.disk.ioUtil')" width="100" />
+                  <el-table-column prop="mountPoint" :label="t('hosts.disk.mountPoint')" min-width="150" />
+                </el-table>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <!-- 主要列 -->
+        <el-table-column prop="ip" :label="t('hosts.columns.ipAddress')" min-width="140" />
+        <el-table-column prop="agentStatus" :label="t('hosts.columns.agentStatus')" min-width="110">
           <template #default="{ row }">
             <el-tag :type="getAgentStatusType(row.agentStatus)" size="small">
               {{ getAgentStatusText(row.agentStatus) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="t('hosts.columns.hostStatus')" width="100">
+        <el-table-column prop="status" :label="t('hosts.columns.hostStatus')" min-width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'online' ? 'success' : 'info'" size="small">
               {{ row.status === 'online' ? t('status.online') : t('status.offline') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="cpu" :label="t('hosts.columns.cpu')" width="120">
+        <el-table-column :label="t('hosts.columns.cpuUsage')" min-width="150">
           <template #default="{ row }">
             <el-progress
               :percentage="row.cpu"
               :color="getProgressColor(row.cpu)"
               :show-text="true"
+              :stroke-width="8"
             />
           </template>
         </el-table-column>
-        <el-table-column prop="memory" :label="t('hosts.columns.memory')" width="120">
+        <el-table-column :label="t('hosts.columns.memoryUsage')" min-width="150">
           <template #default="{ row }">
             <el-progress
               :percentage="row.memory"
               :color="getProgressColor(row.memory)"
               :show-text="true"
+              :stroke-width="8"
             />
           </template>
         </el-table-column>
-        <el-table-column prop="lastHeartbeat" :label="t('hosts.columns.lastHeartbeat')" width="180" />
+        <el-table-column prop="networkIO" :label="t('hosts.columns.networkIO')" min-width="130">
+          <template #default="{ row }">
+            <div class="network-io">
+              <div class="io-item">↑ {{ row.networkIO.upload }}</div>
+              <div class="io-item">↓ {{ row.networkIO.download }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="avgLoad" :label="t('hosts.columns.avgLoad')" min-width="150">
+          <template #default="{ row }">
+            <div class="avg-load">
+              {{ row.avgLoad.join(' / ') }}
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('common.actions')" width="300" fixed="right">
           <template #default="{ row }">
-            <el-button
-              v-if="row.agentStatus === 'not-installed'"
-              size="small"
-              type="primary"
-              @click="handleInstallAgent(row)"
-            >
-              {{ t('hosts.installAgent') }}
-            </el-button>
-            <el-button
-              v-if="row.agentStatus === 'installed'"
-              size="small"
-              type="warning"
-              @click="handleUninstallAgent(row)"
-            >
-              {{ t('hosts.uninstallAgent') }}
-            </el-button>
-            <el-button size="small" @click="handleEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-button size="small" @click="handleTestConnection(row)">{{ t('hosts.testConnection') }}</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
+            <div class="action-buttons">
+              <el-button
+                v-if="row.agentStatus === 'not-installed'"
+                size="small"
+                type="primary" text
+                @click="handleInstallAgent(row)"
+              >
+                {{ t('hosts.installAgent') }}
+              </el-button>
+              <el-button
+                v-if="row.agentStatus === 'installed'"
+                size="small"
+                type="warning" text
+                @click="handleUninstallAgent(row)"
+              >
+                {{ t('hosts.uninstallAgent') }}
+              </el-button>
+              <el-button size="small" text @click="handleEdit(row)">{{ t('common.edit') }}</el-button>
+              <el-button size="small" type="danger" text @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -160,10 +233,24 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Search, Refresh } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Setting } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import PageTabs from '@/components/layout/PageTabs.vue'
 
 const { t } = useI18n()
+
+// 页面标签
+const activeTab = ref('hosts')
+const pageTabs = [
+  { key: 'hosts', label: t('hosts.tabs.list') },
+  { key: 'monitor', label: t('hosts.tabs.monitor') },
+  { key: 'alerts', label: t('hosts.tabs.alerts') }
+]
+
+const handleTabChange = (key: string) => {
+  activeTab.value = key
+  // TODO: 实现标签切换逻辑
+}
 
 // 搜索和筛选
 const searchText = ref('')
@@ -243,7 +330,23 @@ const hosts = ref([
     status: 'online',
     cpu: 45,
     memory: 62,
-    lastHeartbeat: '2025-12-14 10:30:15'
+    lastHeartbeat: '2025-12-14 10:30:15',
+    cpuModel: 'Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz',
+    totalMemory: '64 GB',
+    registerTime: '2025-12-01 09:30:00',
+    os: 'Ubuntu 20.04.3 LTS',
+    kernel: '5.4.0-91-generic',
+    hostname: 'master-node-01',
+    networkInterfaces: [
+      { name: 'eth0', ip: '192.168.1.100', speed: '1000Mbps' },
+      { name: 'eth1', ip: '10.0.0.100', speed: '10Gbps' }
+    ],
+    networkIO: { upload: '12.5 MB/s', download: '8.3 MB/s' },
+    avgLoad: [1.24, 1.58, 1.82],
+    disks: [
+      { name: '/dev/sda1', used: '180 GB', total: '500 GB', usage: 36, ioUtil: '12%', mountPoint: '/' },
+      { name: '/dev/sdb1', used: '850 GB', total: '2 TB', usage: 43, ioUtil: '8%', mountPoint: '/data' }
+    ]
   },
   {
     id: 2,
@@ -255,7 +358,23 @@ const hosts = ref([
     status: 'online',
     cpu: 78,
     memory: 85,
-    lastHeartbeat: '2025-12-14 10:30:12'
+    lastHeartbeat: '2025-12-14 10:30:12',
+    cpuModel: 'Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz',
+    totalMemory: '128 GB',
+    registerTime: '2025-12-01 10:15:00',
+    os: 'CentOS 7.9',
+    kernel: '3.10.0-1160.el7.x86_64',
+    hostname: 'worker-node-01',
+    networkInterfaces: [
+      { name: 'eth0', ip: '192.168.1.101', speed: '1000Mbps' }
+    ],
+    networkIO: { upload: '25.8 MB/s', download: '15.2 MB/s' },
+    avgLoad: [3.24, 3.15, 2.98],
+    disks: [
+      { name: '/dev/sda1', used: '280 GB', total: '500 GB', usage: 56, ioUtil: '28%', mountPoint: '/' },
+      { name: '/dev/sdb1', used: '1.5 TB', total: '2 TB', usage: 75, ioUtil: '45%', mountPoint: '/data' },
+      { name: '/dev/sdc1', used: '3.2 TB', total: '4 TB', usage: 80, ioUtil: '52%', mountPoint: '/backup' }
+    ]
   },
   {
     id: 3,
@@ -267,7 +386,21 @@ const hosts = ref([
     status: 'offline',
     cpu: 0,
     memory: 0,
-    lastHeartbeat: '-'
+    lastHeartbeat: '-',
+    cpuModel: 'Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz',
+    totalMemory: '64 GB',
+    registerTime: '2025-12-02 14:20:00',
+    os: 'Ubuntu 22.04 LTS',
+    kernel: '5.15.0-56-generic',
+    hostname: 'worker-node-02',
+    networkInterfaces: [
+      { name: 'eth0', ip: '192.168.1.102', speed: '1000Mbps' }
+    ],
+    networkIO: { upload: '-', download: '-' },
+    avgLoad: [0, 0, 0],
+    disks: [
+      { name: '/dev/sda1', used: '-', total: '500 GB', usage: 0, ioUtil: '-', mountPoint: '/' }
+    ]
   },
   {
     id: 4,
@@ -279,7 +412,22 @@ const hosts = ref([
     status: 'offline',
     cpu: 0,
     memory: 0,
-    lastHeartbeat: '2025-12-14 09:15:30'
+    lastHeartbeat: '2025-12-14 09:15:30',
+    cpuModel: 'Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz',
+    totalMemory: '96 GB',
+    registerTime: '2025-12-03 11:10:00',
+    os: 'Ubuntu 20.04.3 LTS',
+    kernel: '5.4.0-91-generic',
+    hostname: 'worker-node-03',
+    networkInterfaces: [
+      { name: 'eth0', ip: '192.168.1.103', speed: '1000Mbps' }
+    ],
+    networkIO: { upload: '-', download: '-' },
+    avgLoad: [0, 0, 0],
+    disks: [
+      { name: '/dev/sda1', used: '120 GB', total: '500 GB', usage: 24, ioUtil: '-', mountPoint: '/' },
+      { name: '/dev/sdb1', used: '600 GB', total: '2 TB', usage: 30, ioUtil: '-', mountPoint: '/data' }
+    ]
   }
 ])
 
@@ -325,9 +473,21 @@ const getAgentStatusText = (status: string) => {
 }
 
 const getProgressColor = (percentage: number) => {
+  // 暗黑模式下统一使用主色作为强调色
+  if (document.documentElement.classList.contains('dark')) {
+    return 'var(--primary)'
+  }
   if (percentage < 60) return '#67c23a'
   if (percentage < 80) return '#e6a23c'
   return '#f56c6c'
+}
+
+const getRowClassName = ({ row }: { row: any }) => {
+  // 高负载行特别高亮
+  if (row.cpu >= 80 || row.memory >= 80) {
+    return 'high-load-row'
+  }
+  return ''
 }
 
 const handleAddHost = () => {
@@ -438,26 +598,114 @@ const handleRefresh = () => {
   width: 100%;
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.filter-bar {
+.toolbar {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  margin-bottom: 8px;
 }
 
 .pagination {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+// 展开内容样式
+.expand-content {
+  padding: 24px 48px;
+  background: var(--surface-2);
+}
+
+.info-section {
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.disk-table {
+  :deep(.el-table__header) {
+    th {
+      background: rgba(0, 0, 0, 0.02);
+      font-weight: 600;
+    }
+  }
+}
+
+// 网络IO样式
+.network-io {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+
+  .io-item {
+    font-family: 'Consolas', 'Monaco', monospace;
+  }
+}
+
+// 平均负载样式
+.avg-load {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+}
+
+// 操作按钮样式
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  align-items: center;
+
+  .el-button {
+    flex-shrink: 0;
+  }
+}
+
+// 表格样式优化
+.hosts-table {
+  :deep(.el-table__header) {
+    th {
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+      border-color: var(--border);
+    }
+  }
+
+  :deep(.el-table__body) {
+    td {
+      border-color: var(--border);
+    }
+  }
+
+  // 高负载行高亮
+  :deep(.high-load-row) {
+    background: var(--text-soft-bg) !important;
+    border-left: 4px solid var(--primary) !important;
+
+    &:hover {
+      background: var(--surface-2) !important;
+    }
+
+    // 第一个单元格需要补偿左边框占用的空间
+    td:first-child {
+      padding-left: 12px;
+    }
+  }
 }
 </style>
