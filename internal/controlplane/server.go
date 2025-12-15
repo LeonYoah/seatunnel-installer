@@ -3,6 +3,7 @@ package controlplane
 import (
 	"fmt"
 
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/server"
 	"github.com/spf13/cobra"
 )
 
@@ -14,9 +15,14 @@ func NewServerCmd() *cobra.Command {
 		Long:  `Start the control plane server to provide web UI and REST API.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			port, _ := cmd.Flags().GetInt("port")
-			fmt.Printf("Starting control plane server on port %d...\n", port)
-			// TODO: Implement server startup
-			return nil
+
+			// 创建并启动服务器
+			srv, err := server.NewServer(port)
+			if err != nil {
+				return err
+			}
+
+			return srv.Start()
 		},
 	}
 
