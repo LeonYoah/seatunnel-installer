@@ -13,12 +13,15 @@
   --border: #e6ebf2;
   --text: #1f2937;
   --muted: #6b7280;
-  --primary: #5a90e5;
-  --primary-2: #1656cc;
+  --primary:   #0ea5e9; /* 或者稍微深一点 #0284c7 */
+  --primary-2: #0369a1;
   --success: #16a34a;
-  --warning: #ff7a45; 
-  --error: #ff4d4f;
+  --warning: #f59e0b;
+  --error: #ef4444;
   --shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+
+  /* 明亮模式下的 soft bg */
+  --text-soft-bg: rgba(15, 23, 42, 0.04);
 
   /* 同步 Element Plus 变量（明亮模式） */
   --el-color-primary: var(--primary);
@@ -64,6 +67,27 @@
 }
 
 /* ========================================
+   卡片扁平化样式
+   ======================================== */
+.el-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  border-radius: 8px;
+
+  &__header {
+    background: transparent;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    font-weight: 600;
+  }
+
+  &__body {
+    padding: 20px;
+  }
+}
+
+/* ========================================
    全局 text 按钮样式（更克制的链接风格）
    ======================================== */
 .el-button.is-text {
@@ -78,12 +102,18 @@
 .el-button.is-text.el-button--danger  { color: var(--error); }
 .el-button.is-text.el-button--info    { color: var(--muted); }
 .el-button.is-text:not(.is-disabled):hover {
-  background-color: var(--text-soft-bg);
+  background-color: transparent !important;
   text-decoration: underline;
 }
-.el-button.is-text.el-button--primary:not(.is-disabled):hover { background-color: var(--primary-soft-bg); }
-.el-button.is-text.el-button--warning:not(.is-disabled):hover { background-color: var(--warning-soft-bg); }
-.el-button.is-text.el-button--danger:not(.is-disabled):hover  { background-color: var(--error-soft-bg); }
+
+/* 点击时只显示下划线，无背景和边框 */
+.el-button.is-text:not(.is-disabled):active,
+.el-button.is-text:not(.is-disabled):focus {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  text-decoration: underline;
+  outline: none;
+}
 
 /* ========================================
    暗色模式
@@ -156,15 +186,15 @@ html.dark {
      Element Plus 组件暗色主题
      ======================================== */
 
-  // 卡片
+  // 卡片扁平化（暗色模式）
   .el-card {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)) !important;
-    border-color: var(--border) !important;
-    box-shadow: var(--shadow) !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: none !important;
 
     &__header {
-      background: rgba(255, 255, 255, 0.02) !important;
-      border-color: var(--border) !important;
+      background: transparent !important;
+      border-bottom: 1px solid var(--border) !important;
       color: var(--text) !important;
     }
   }
@@ -178,9 +208,12 @@ html.dark {
   .el-button.is-text.el-button--info {
     color: var(--text);
   }
-  .el-button.is-text:not(.is-disabled):hover {
+  .el-button.is-text:not(.is-disabled):hover,
+  .el-button.is-text:not(.is-disabled):active,
+  .el-button.is-text:not(.is-disabled):focus {
     color: var(--primary);
-    background-color: var(--text-soft-bg);
+    background-color: transparent !important;
+    text-decoration: underline;
   }
 
   // 按钮

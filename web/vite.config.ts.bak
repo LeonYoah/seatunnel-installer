@@ -1,0 +1,158 @@
+import autoprefixer from 'autoprefixer';
+import path from 'path';
+import postCssPxToRem from 'postcss-pxtorem';
+import { defineConfig, loadEnv } from 'vite';
+import createVitePlugins from './vite/plugins';
+import poscssPresetEnv from 'postcss-preset-env';
+
+const hash = Math.floor(Math.random() * 90000) + 10000;
+// https://vitejs.dev/config/
+export default defineConfig(({ mode, command }) => {
+  const env = loadEnv(mode, process.cwd());
+  return {
+    // 部署生产环境和开发环境下的 URL。
+    // 默认情况下，vite 会假设你的应用是被部署在一个域名的根路径上
+    // 例如 https://www.Xugu.vip/。如果应用被部署在一个子路径上，你就需要用这个选项指定这个子路径。例如，如果你的应用被部署在 https://www.Xugu.vip/admin/，则设置 baseUrl 为 /admin/。
+    base: env.VITE_APP_CONTEXT_PATH,
+    plugins: createVitePlugins(env, command === 'build'),
+    resolve: {
+      // https://cn.vitejs.dev/config/#resolve-alias
+      alias: {
+        // 设置路径
+        '~': path.resolve(__dirname, './'),
+        // 设置别名
+        '@': path.resolve(__dirname, './src'),
+      },
+      // https://cn.vitejs.dev/config/#resolve-extensions
+      extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
+    },
+    // vite 相关配置
+    server: {
+      port: 8089,
+      host: true,
+      open: true,
+      hmr: true,
+      proxy: {
+        '/operator/websocket': {
+          target: 'ws://10.28.23.110:9000',
+          changeOrigin: true,
+          ws: true,
+        },
+        // https://cn.vitejs.dev/config/#server-proxy
+
+        // 代理默认使用 开发 本地调试修改已有数据 勿提交(导致冲突)  可新增
+        '/dev-api': {
+          // target: 'http://10.28.23.131:9000/prod-api', // 开发
+        //   target: 'http://10.28.23.134:9001/prod-api', // 主数据管理开发
+          // target: 'http://10.28.23.192:9001/prod-api', // 数据平台开发
+          //   target: 'http://10.28.23.131:9001/prod-api/', // 测试
+          //   target: 'http://10.28.23.110:9580', // zj
+          //   target: 'http://10.28.21.59:8080', // xc
+          //   target: 'http://10.28.21.56:8080', // lij
+          //   target: 'http://10.28.21.68:8080', // luo_j
+          //   target: 'http://10.28.21.58:8080', // zx
+
+            target: 'http://10.28.23.115:9380', // lyb
+          //   target: 'http://10.28.23.115:9580', // zj
+            // target: 'http://10.28.23.115:9480', // lps
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/dev-api/, ''),
+        },
+
+        '/xugurtp-file': {
+          target: 'http://10.28.23.131:9000/xugurtp-file/',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/xugurtp-file/, ''),
+        },
+
+        '/grafana': {
+          target: 'http://10.28.23.131:9000/grafana/',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/grafana/, ''),
+        },
+      },
+    },
+    preview: {
+      open: true,
+      proxy: {
+        '/prod-api': {
+          target: 'http://10.28.21.56:8080', // lij
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/dev-api/, ''),
+        },
+
+        '/xugurtp-file': {
+          target: 'http://10.28.23.131:9000/xugurtp-file/',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/xugurtp-file/, ''),
+        },
+      },
+      cors: true,
+    },
+    // fix:error:stdin>:7356:1: warning: "@charset" must be the first rule in the file
+    css: {
+      postcss: {
+        plugins: [
+          postCssPxToRem({
+            // 自适应，px>rem 转换
+            rootValue: 16, // 1rem 的大小
+            propList: ['*'], // 需要转换的属性，这里选择全部都进行转换
+          }),
+          autoprefixer({
+            overrideBrowserslist: [
+              'Android 4.1',
+              'iOS 7.1',
+              'Chrome > 31',
+              'ff > 31',
+              'ie >= 8',
+              '> 1%',
+            ],
+            grid: true,
+          }),
+          {
+            postcssPlugin: 'internal:charset-removal',
+            AtRule: {
+              charset: (atRule) => {
+                if (atRule.name === 'charset') {
+                  atRule.remove();
+                }
+              },
+            },
+          },
+          poscssPresetEnv(),
+        ],
+      },
+      // preprocessorOptions: {
+      //   scss: {
+      //       additionalData: `@import "@/assets/styles/index.scss"`,
+      //     }
+      // },
+    },
+    build: {
+      minify: 'terser',
+      // 关闭文件计算
+      reportCompressedSize: false,
+      sourcemap: false,
+      terserOptions: {
+        /** **************************************  如冲突以该代码为准 */
+        compress: {
+          // 生产环境时移除 console
+          drop_console: true,
+          drop_debugger: true,
+        },
+
+        //! 生产环境勿开启
+
+        // compress: false,
+        // mangle: false,
+      },
+      rollupOptions: {
+        output: {
+          entryFileNames: `[name]` + hash + `.js`,
+          chunkFileNames: `[name]` + hash + `.js`,
+          assetFileNames: `[name]` + hash + `.[ext]`,
+        },
+      },
+    },
+  };
+});

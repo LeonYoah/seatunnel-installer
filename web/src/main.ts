@@ -13,6 +13,12 @@ import i18n from './i18n'
 
 const app = createApp(App)
 
+// 开发环境启用 Vue DevTools
+if (import.meta.env.DEV) {
+  app.config.devtools = true
+  app.config.performance = true
+}
+
 // 注册插件
 app.use(router)
 app.use(pinia)

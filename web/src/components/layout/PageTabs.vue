@@ -21,8 +21,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-
 interface Tab {
   key: string
   label: string
