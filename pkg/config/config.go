@@ -5,6 +5,7 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
+	JWT      JWTConfig      `mapstructure:"jwt"`
 }
 
 // ServerConfig represents server configuration
@@ -41,4 +42,11 @@ type DatabaseConfig struct {
 type LoggerConfig struct {
 	Level       string   `mapstructure:"level"`
 	OutputPaths []string `mapstructure:"output_paths"`
+}
+
+// JWTConfig represents JWT configuration
+type JWTConfig struct {
+	SecretKey       string `mapstructure:"secret_key"`
+	AccessTokenTTL  int    `mapstructure:"access_token_ttl"`  // minutes
+	RefreshTokenTTL int    `mapstructure:"refresh_token_ttl"` // hours
 }

@@ -7,6 +7,11 @@ func AllModels() []interface{} {
 	return []interface{}{
 		&Tenant{},
 		&Workspace{},
+		&User{},
+		&Role{},
+		&Permission{},
+		&UserRole{},
+		&RolePermission{},
 		&Host{},
 		&Cluster{},
 		&Node{},

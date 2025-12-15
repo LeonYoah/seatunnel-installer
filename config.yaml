@@ -39,3 +39,9 @@ logger:
   output_paths:
     - "stdout"
     - "logs/app.log"
+
+# JWT配置
+jwt:
+  secret_key: "seatunnel-enterprise-platform-jwt-secret-key-change-in-production"
+  access_token_ttl: 60    # 访问令牌有效期（分钟）
+  refresh_token_ttl: 168  # 刷新令牌有效期（小时，7天）

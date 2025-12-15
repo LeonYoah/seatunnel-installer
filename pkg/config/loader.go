@@ -70,6 +70,11 @@ func setDefaults(v *viper.Viper) {
 	// Logger defaults
 	v.SetDefault("logger.level", "info")
 	v.SetDefault("logger.output_paths", []string{"stdout"})
+
+	// JWT defaults
+	v.SetDefault("jwt.secret_key", "seatunnel-enterprise-platform-jwt-secret-key-change-in-production")
+	v.SetDefault("jwt.access_token_ttl", 60)   // 60 minutes
+	v.SetDefault("jwt.refresh_token_ttl", 168) // 168 hours (7 days)
 }
 
 // validate validates the configuration

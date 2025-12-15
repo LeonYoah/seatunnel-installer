@@ -2,18 +2,24 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/auth"
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/handlers"
 	"github.com/seatunnel/enterprise-platform/internal/controlplane/middleware"
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/repository"
 	"go.uber.org/zap"
 )
 
 // Router API路由器
 type Router struct {
-	engine *gin.Engine
-	logger *zap.Logger
+	engine      *gin.Engine
+	logger      *zap.Logger
+	repoManager repository.RepositoryManager
+	jwtService  *auth.JWTService
+	authHandler *handlers.AuthHandler
 }
 
 // NewRouter 创建新的路由器
-func NewRouter(logger *zap.Logger) *Router {
+func NewRouter(logger *zap.Logger, repoManager repository.RepositoryManager, jwtService *auth.JWTService) *Router {
 	// 设置Gin模式
 	gin.SetMode(gin.ReleaseMode)
 
@@ -25,9 +31,16 @@ func NewRouter(logger *zap.Logger) *Router {
 	engine.Use(middleware.CORS())
 	engine.Use(gin.Recovery())
 
+	// 创建认证服务和处理器
+	authService := auth.NewAuthService(repoManager, jwtService)
+	authHandler := handlers.NewAuthHandler(authService)
+
 	return &Router{
-		engine: engine,
-		logger: logger,
+		engine:      engine,
+		logger:      logger,
+		repoManager: repoManager,
+		jwtService:  jwtService,
+		authHandler: authHandler,
 	}
 }
 
@@ -105,17 +118,18 @@ func (r *Router) setupV1Routes(v1 *gin.RouterGroup) {
 }
 
 // setupAuthRoutes 设置认证路由
-func (r *Router) setupAuthRoutes(auth *gin.RouterGroup) {
-	// TODO: 实现认证相关路由
-	auth.POST("/login", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "登录接口待实现"})
-	})
-	auth.POST("/logout", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "登出接口待实现"})
-	})
-	auth.POST("/refresh", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "刷新令牌接口待实现"})
-	})
+func (r *Router) setupAuthRoutes(authGroup *gin.RouterGroup) {
+	// 公开路由（不需要认证）
+	authGroup.POST("/login", r.authHandler.Login)
+	authGroup.POST("/refresh", r.authHandler.RefreshToken)
+
+	// 需要认证的路由
+	authenticated := authGroup.Group("")
+	authenticated.Use(middleware.AuthMiddleware(r.jwtService, r.repoManager))
+	{
+		authenticated.GET("/me", r.authHandler.GetCurrentUser)
+		authenticated.POST("/logout", r.authHandler.Logout)
+	}
 }
 
 // setupHostRoutes 设置主机管理路由

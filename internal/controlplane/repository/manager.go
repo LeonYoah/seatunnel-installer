@@ -18,30 +18,36 @@ type repositoryManager struct {
 	db *gorm.DB
 
 	// Repository实例
-	tenantRepo    TenantRepository
-	workspaceRepo WorkspaceRepository
-	hostRepo      HostRepository
-	clusterRepo   ClusterRepository
-	nodeRepo      NodeRepository
-	taskRepo      TaskRepository
-	runRepo       RunRepository
-	auditLogRepo  AuditLogRepository
-	secretRepo    SecretRepository
+	tenantRepo     TenantRepository
+	workspaceRepo  WorkspaceRepository
+	userRepo       UserRepository
+	roleRepo       RoleRepository
+	permissionRepo PermissionRepository
+	hostRepo       HostRepository
+	clusterRepo    ClusterRepository
+	nodeRepo       NodeRepository
+	taskRepo       TaskRepository
+	runRepo        RunRepository
+	auditLogRepo   AuditLogRepository
+	secretRepo     SecretRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
 func NewRepositoryManager(db *gorm.DB) RepositoryManager {
 	return &repositoryManager{
-		db:            db,
-		tenantRepo:    newTenantRepository(db),
-		workspaceRepo: newWorkspaceRepository(db),
-		hostRepo:      newHostRepository(db),
-		clusterRepo:   newClusterRepository(db),
-		nodeRepo:      newNodeRepository(db),
-		taskRepo:      newTaskRepository(db),
-		runRepo:       newRunRepository(db),
-		auditLogRepo:  newAuditLogRepository(db),
-		secretRepo:    newSecretRepository(db),
+		db:             db,
+		tenantRepo:     newTenantRepository(db),
+		workspaceRepo:  newWorkspaceRepository(db),
+		userRepo:       NewUserRepository(db),
+		roleRepo:       NewRoleRepository(db),
+		permissionRepo: NewPermissionRepository(db),
+		hostRepo:       newHostRepository(db),
+		clusterRepo:    newClusterRepository(db),
+		nodeRepo:       newNodeRepository(db),
+		taskRepo:       newTaskRepository(db),
+		runRepo:        newRunRepository(db),
+		auditLogRepo:   newAuditLogRepository(db),
+		secretRepo:     newSecretRepository(db),
 	}
 }
 
@@ -50,16 +56,19 @@ func (m *repositoryManager) WithTransaction(ctx context.Context, fn func(ctx con
 	return m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 创建新的Repository管理器，使用事务连接
 		txManager := &repositoryManager{
-			db:            tx,
-			tenantRepo:    newTenantRepository(tx),
-			workspaceRepo: newWorkspaceRepository(tx),
-			hostRepo:      newHostRepository(tx),
-			clusterRepo:   newClusterRepository(tx),
-			nodeRepo:      newNodeRepository(tx),
-			taskRepo:      newTaskRepository(tx),
-			runRepo:       newRunRepository(tx),
-			auditLogRepo:  newAuditLogRepository(tx),
-			secretRepo:    newSecretRepository(tx),
+			db:             tx,
+			tenantRepo:     newTenantRepository(tx),
+			workspaceRepo:  newWorkspaceRepository(tx),
+			userRepo:       NewUserRepository(tx),
+			roleRepo:       NewRoleRepository(tx),
+			permissionRepo: NewPermissionRepository(tx),
+			hostRepo:       newHostRepository(tx),
+			clusterRepo:    newClusterRepository(tx),
+			nodeRepo:       newNodeRepository(tx),
+			taskRepo:       newTaskRepository(tx),
+			runRepo:        newRunRepository(tx),
+			auditLogRepo:   newAuditLogRepository(tx),
+			secretRepo:     newSecretRepository(tx),
 		}
 
 		// 将事务管理器放入上下文
@@ -76,6 +85,21 @@ func (m *repositoryManager) Tenant() TenantRepository {
 // Workspace 获取工作空间Repository
 func (m *repositoryManager) Workspace() WorkspaceRepository {
 	return m.workspaceRepo
+}
+
+// User 获取用户Repository
+func (m *repositoryManager) User() UserRepository {
+	return m.userRepo
+}
+
+// Role 获取角色Repository
+func (m *repositoryManager) Role() RoleRepository {
+	return m.roleRepo
+}
+
+// Permission 获取权限Repository
+func (m *repositoryManager) Permission() PermissionRepository {
+	return m.permissionRepo
 }
 
 // Host 获取主机Repository

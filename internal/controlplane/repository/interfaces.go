@@ -89,6 +89,38 @@ type SecretRepository interface {
 	GetByName(ctx context.Context, workspaceID, name string) (*models.Secret, error)
 }
 
+// UserRepository 用户Repository接口
+type UserRepository interface {
+	BaseRepository[models.User]
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByTenantID(ctx context.Context, tenantID string, offset, limit int) ([]*models.User, int64, error)
+	GetByWorkspaceID(ctx context.Context, workspaceID string, offset, limit int) ([]*models.User, int64, error)
+	UpdateLastLogin(ctx context.Context, id string) error
+	GetWithRoles(ctx context.Context, id string) (*models.User, error)
+	AssignRole(ctx context.Context, userID, roleID string) error
+	RemoveRole(ctx context.Context, userID, roleID string) error
+}
+
+// RoleRepository 角色Repository接口
+type RoleRepository interface {
+	BaseRepository[models.Role]
+	GetByTenantID(ctx context.Context, tenantID string, offset, limit int) ([]*models.Role, int64, error)
+	GetByName(ctx context.Context, tenantID, name string) (*models.Role, error)
+	GetWithPermissions(ctx context.Context, id string) (*models.Role, error)
+	AssignPermission(ctx context.Context, roleID, permissionID string) error
+	RemovePermission(ctx context.Context, roleID, permissionID string) error
+	GetBuiltInRoles(ctx context.Context) ([]*models.Role, error)
+}
+
+// PermissionRepository 权限Repository接口
+type PermissionRepository interface {
+	BaseRepository[models.Permission]
+	GetByPermission(ctx context.Context, permission string) (*models.Permission, error)
+	GetByResource(ctx context.Context, resource string) ([]*models.Permission, error)
+	ListAll(ctx context.Context) ([]*models.Permission, error)
+}
+
 // TransactionManager 事务管理器接口
 type TransactionManager interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
@@ -99,6 +131,9 @@ type RepositoryManager interface {
 	TransactionManager
 	Tenant() TenantRepository
 	Workspace() WorkspaceRepository
+	User() UserRepository
+	Role() RoleRepository
+	Permission() PermissionRepository
 	Host() HostRepository
 	Cluster() ClusterRepository
 	Node() NodeRepository
