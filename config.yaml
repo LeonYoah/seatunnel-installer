@@ -1,0 +1,41 @@
+# SeaTunnel企业平台配置文件
+
+# 服务器配置
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+# 数据库配置
+database:
+  # 数据库类型: sqlite, mysql, postgres, oracle
+  type: "sqlite"
+  
+  # 通用数据库配置
+  host: "localhost"
+  port: 3306
+  database: "seatunnel"
+  username: "root"
+  password: ""
+  
+  # SQLite特定配置
+  sqlite_file: "data/seatunnel.db"
+  
+  # Oracle特定配置
+  service_name: ""  # Oracle服务名（推荐）
+  sid: ""           # Oracle SID
+  
+  # SSL配置
+  ssl_mode: "disable"
+  
+  # 连接池配置
+  max_open_conns: 100
+  max_idle_conns: 10
+  conn_max_lifetime: 3600  # 秒
+  conn_max_idle_time: 1800 # 秒
+
+# 日志配置
+logger:
+  level: "info"
+  output_paths:
+    - "stdout"
+    - "logs/app.log"

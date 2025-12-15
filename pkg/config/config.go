@@ -22,6 +22,19 @@ type DatabaseConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
 	SSLMode  string `mapstructure:"ssl_mode"`
+
+	// SQLite specific
+	SQLiteFile string `mapstructure:"sqlite_file"`
+
+	// Oracle specific
+	ServiceName string `mapstructure:"service_name"`
+	SID         string `mapstructure:"sid"`
+
+	// Connection pool settings
+	MaxOpenConns    int `mapstructure:"max_open_conns"`
+	MaxIdleConns    int `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime int `mapstructure:"conn_max_lifetime"`  // seconds
+	ConnMaxIdleTime int `mapstructure:"conn_max_idle_time"` // seconds
 }
 
 // LoggerConfig represents logger configuration

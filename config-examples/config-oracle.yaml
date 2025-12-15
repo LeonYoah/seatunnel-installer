@@ -1,0 +1,34 @@
+# Oracle数据库配置示例
+# 适用于企业级生产环境
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  type: "oracle"
+  host: "localhost"
+  port: 1521
+  username: "system"
+  password: "your_password"
+  
+  # Oracle连接方式1: 使用ServiceName（推荐）
+  service_name: "XE"
+  
+  # Oracle连接方式2: 使用SID（可选，与service_name二选一）
+  # sid: "ORCL"
+  
+  # Oracle连接方式3: 使用Database名称（当service_name和sid都为空时使用）
+  # database: "XE"
+  
+  # Oracle连接池配置（Oracle连接相对昂贵，建议较小的连接池）
+  max_open_conns: 50
+  max_idle_conns: 5
+  conn_max_lifetime: 7200  # 2小时
+  conn_max_idle_time: 900  # 15分钟
+
+logger:
+  level: "info"
+  output_paths:
+    - "stdout"
+    - "logs/app.log"

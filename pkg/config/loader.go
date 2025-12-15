@@ -60,8 +60,12 @@ func setDefaults(v *viper.Viper) {
 
 	// Database defaults
 	v.SetDefault("database.type", "sqlite")
-	v.SetDefault("database.database", "seatunnel.db")
+	v.SetDefault("database.sqlite_file", "data/seatunnel.db")
 	v.SetDefault("database.ssl_mode", "disable")
+	v.SetDefault("database.max_open_conns", 100)
+	v.SetDefault("database.max_idle_conns", 10)
+	v.SetDefault("database.conn_max_lifetime", 3600)
+	v.SetDefault("database.conn_max_idle_time", 1800)
 
 	// Logger defaults
 	v.SetDefault("logger.level", "info")

@@ -1,0 +1,25 @@
+# PostgreSQL数据库配置示例
+# 适用于生产环境
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  type: "postgres"
+  host: "localhost"
+  port: 5432
+  database: "seatunnel"
+  username: "seatunnel_user"
+  password: "your_password"
+  ssl_mode: "disable"
+  max_open_conns: 100
+  max_idle_conns: 10
+  conn_max_lifetime: 3600
+  conn_max_idle_time: 1800
+
+logger:
+  level: "info"
+  output_paths:
+    - "stdout"
+    - "logs/app.log"

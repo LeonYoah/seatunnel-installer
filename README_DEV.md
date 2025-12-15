@@ -404,3 +404,6 @@ A: 在 `internal/agent/process/actions/` 中添加新的操作实现。
 ## 许可证
 
 Apache License 2.0
+
+## 本地开发
+windows需要下载：https://github.com/jmeubank/tdm-gcc/releases/download/v10.3.0-tdm64-2/tdm64-gcc-10.3.0-2.exe，sqlite3需要cgo

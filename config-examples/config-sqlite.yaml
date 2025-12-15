@@ -1,0 +1,17 @@
+# SQLite数据库配置示例
+# 适用于开发环境和小规模部署
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  type: "sqlite"
+  sqlite_file: "data/seatunnel.db"
+  max_open_conns: 1
+  max_idle_conns: 1
+
+logger:
+  level: "debug"
+  output_paths:
+    - "stdout"
