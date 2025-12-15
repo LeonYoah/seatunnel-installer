@@ -296,6 +296,11 @@ export default {
       last24h: '过去 24 小时',
       placeholder: '图表占位 - 后续接入 ECharts 展示趋势数据'
     },
+    chart: {
+      success: '成功任务',
+      failed: '失败任务',
+      taskCount: '任务数量'
+    },
     alerts: {
       title: '最近告警',
       empty: '暂无告警'
@@ -386,6 +391,28 @@ export default {
   },
   footer: {
     copyright: 'SeaTunnel 企业级管理平台 | Apache SeaTunnel'
+  },
+  login: {
+    form: {
+      username: '用户名',
+      password: '密码',
+      rememberMe: '记住我',
+      login: '登录',
+      loggingIn: '登录中...'
+    },
+    validation: {
+      usernameRequired: '请输入用户名',
+      usernameLength: '用户名长度应在 2 到 50 个字符之间',
+      passwordRequired: '请输入密码',
+      passwordLength: '密码长度至少为 6 个字符'
+    },
+    messages: {
+      loginSuccess: '登录成功',
+      loginFailed: '登录失败，请检查用户名和密码',
+      logoutSuccess: '已退出登录',
+      tokenExpired: '登录已过期，请重新登录',
+      sessionExpired: '会话已过期，请重新登录'
+    }
   },
   tips: {
     profileWip: '个人信息功能开发中',

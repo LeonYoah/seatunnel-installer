@@ -76,7 +76,7 @@ export const useThemeStore = defineStore('theme', () => {
       const data = ctx.getImageData(0, 0, 32, 32).data
       let r = 0, g = 0, b = 0, count = 0
       for (let i = 0; i < data.length; i += 4) {
-        const rr = data[i], gg = data[i + 1], bb = data[i + 2], a = data[i + 3]
+        const rr = data[i] || 0, gg = data[i + 1] || 0, bb = data[i + 2] || 0, a = data[i + 3] || 0
         if (a < 200) continue // 忽略透明像素
         // 稍微偏向蓝色像素
         const bias = bb > rr && bb > gg ? 1.2 : 1.0

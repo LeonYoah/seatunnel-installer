@@ -68,15 +68,15 @@
         <el-table-column :label="t('common.actions')" width="220" fixed="right">
           <template #default="{ row }">
             <template v-if="row.status === 'installed'">
-              <el-button size="small" @click="handleUpgrade(row)">{{ t('plugins.upgrade') }}</el-button>
+              <el-button size="small" text @click="handleUpgrade(row)">{{ t('plugins.upgrade') }}</el-button>
               <el-button size="small" type="danger" text @click="handleDisable(row)">{{ t('plugins.disable') }}</el-button>
             </template>
             <template v-else>
-              <el-button size="small" type="primary" @click="handleInstall(row)">
+              <el-button size="small" type="primary" text @click="handleInstall(row)">
                 {{ t('plugins.install') }}
               </el-button>
             </template>
-            <el-button size="small" @click="handleViewDetail(row)">{{ t('common.view') }}</el-button>
+            <el-button size="small" text @click="handleViewDetail(row)">{{ t('common.view') }}</el-button>
           </template>
         </el-table-column>
       </el-table>

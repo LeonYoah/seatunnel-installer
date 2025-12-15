@@ -70,10 +70,7 @@
               <el-tag size="small" type="info">{{ t('dashboard.trend.last24h') }}</el-tag>
             </div>
           </template>
-          <div class="chart-placeholder">
-            <el-icon :size="64" color="#909399"><TrendCharts /></el-icon>
-            <p>{{ t('dashboard.trend.placeholder') }}</p>
-          </div>
+          <div ref="chartContainer" class="chart-container"></div>
         </el-card>
       </el-col>
       <el-col :xs="24" :md="8">
@@ -138,20 +135,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Connection,
   List,
   Timer,
-  Bell,
-  TrendCharts
+  Bell
 } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import * as echarts from 'echarts'
 
 const router = useRouter()
 const { t } = useI18n()
+
+// 图表容器引用
+const chartContainer = ref<HTMLElement>()
+let chartInstance: echarts.ECharts | null = null
 
 // 集群统计数据
 const clusterStats = ref({
@@ -264,6 +265,129 @@ const handleTaskAction = (row: any, action: string) => {
     ElMessage.info(t('tasks.msg.view', { name: row.name }))
   }
 }
+
+// 初始化图表
+const initChart = () => {
+  if (!chartContainer.value) return
+
+  chartInstance = echarts.init(chartContainer.value)
+  
+  // 生成过去24小时的模拟数据
+  const hours = []
+  const successData = []
+  const failedData = []
+  const now = new Date()
+  
+  for (let i = 23; i >= 0; i--) {
+    const time = new Date(now.getTime() - i * 60 * 60 * 1000)
+    hours.push(time.getHours() + ':00')
+    // 模拟成功任务数据（80-120之间波动）
+    successData.push(Math.floor(Math.random() * 40) + 80)
+    // 模拟失败任务数据（0-10之间波动）
+    failedData.push(Math.floor(Math.random() * 10))
+  }
+
+  const option = {
+    title: {
+      text: t('dashboard.trend.title'),
+      textStyle: {
+        fontSize: 16,
+        fontWeight: 'normal'
+      }
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    legend: {
+      data: [t('dashboard.chart.success'), t('dashboard.chart.failed')],
+      bottom: 10
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: hours,
+      axisLabel: {
+        fontSize: 12
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: t('dashboard.chart.taskCount'),
+      axisLabel: {
+        fontSize: 12
+      }
+    },
+    series: [
+      {
+        name: t('dashboard.chart.success'),
+        type: 'line',
+        smooth: true,
+        data: successData,
+        itemStyle: {
+          color: '#67c23a'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(103, 194, 58, 0.3)' },
+            { offset: 1, color: 'rgba(103, 194, 58, 0.1)' }
+          ])
+        }
+      },
+      {
+        name: t('dashboard.chart.failed'),
+        type: 'line',
+        smooth: true,
+        data: failedData,
+        itemStyle: {
+          color: '#f56c6c'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(245, 108, 108, 0.3)' },
+            { offset: 1, color: 'rgba(245, 108, 108, 0.1)' }
+          ])
+        }
+      }
+    ]
+  }
+
+  chartInstance.setOption(option)
+}
+
+// 响应式调整图表大小
+const handleResize = () => {
+  if (chartInstance) {
+    chartInstance.resize()
+  }
+}
+
+onMounted(() => {
+  // 延迟初始化图表，确保DOM已渲染
+  setTimeout(() => {
+    initChart()
+  }, 100)
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  // 清理图表实例和事件监听器
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <style scoped>
@@ -342,15 +466,9 @@ const handleTaskAction = (row: any, action: string) => {
   justify-content: space-between;
 }
 
-.chart-placeholder {
+.chart-container {
   height: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  border: 1px dashed var(--border);
-  border-radius: 8px;
+  width: 100%;
 }
 
 .alert-list {

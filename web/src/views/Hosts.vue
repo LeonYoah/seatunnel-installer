@@ -233,7 +233,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Search, Refresh, Setting } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import PageTabs from '@/components/layout/PageTabs.vue'
 
@@ -564,13 +564,13 @@ const handleUninstallAgent = (row: any) => {
     })
 }
 
-const handleTestConnection = (row: any) => {
-  ElMessage.info(t('hosts.msg.testing', { name: row.name }))
-  // TODO: 调用 API 测试连接
-  setTimeout(() => {
-    ElMessage.success(t('hosts.msg.testSuccess'))
-  }, 1000)
-}
+// const handleTestConnection = (row: any) => {
+//   ElMessage.info(t('hosts.msg.testing', { name: row.name }))
+//   // TODO: 调用 API 测试连接
+//   setTimeout(() => {
+//     ElMessage.success(t('hosts.msg.testSuccess'))
+//   }, 1000)
+// }
 
 const handleDelete = (row: any) => {
   ElMessageBox.confirm(t('hosts.msg.confirmDelete', { name: row.name }), t('common.confirmDelete'), {

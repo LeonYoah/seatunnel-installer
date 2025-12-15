@@ -12,52 +12,62 @@ const routes = [
     redirect: '/dashboard'
   },
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: { 
+      titleKey: 'login.form.login',
+      requiresAuth: false,
+      hideLayout: true
+    }
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/Dashboard.vue'),
-    meta: { titleKey: 'route.dashboard' }
+    meta: { titleKey: 'route.dashboard', requiresAuth: true }
   },
   {
     path: '/hosts',
     name: 'Hosts',
     component: () => import('@/views/Hosts.vue'),
-    meta: { titleKey: 'route.hosts' }
+    meta: { titleKey: 'route.hosts', requiresAuth: true }
   },
   {
     path: '/deploy',
     name: 'Deploy',
     component: () => import('@/views/Deploy.vue'),
-    meta: { titleKey: 'route.deploy' }
+    meta: { titleKey: 'route.deploy', requiresAuth: true }
   },
   {
     path: '/tasks',
     name: 'Tasks',
     component: () => import('@/views/Tasks.vue'),
-    meta: { titleKey: 'route.tasks' }
+    meta: { titleKey: 'route.tasks', requiresAuth: true }
   },
   {
     path: '/clusters',
     name: 'Clusters',
     component: () => import('@/views/Clusters.vue'),
-    meta: { titleKey: 'route.clusters' }
+    meta: { titleKey: 'route.clusters', requiresAuth: true }
   },
   {
     path: '/diagnostics',
     name: 'Diagnostics',
     component: () => import('@/views/Diagnostics.vue'),
-    meta: { titleKey: 'route.diagnostics' }
+    meta: { titleKey: 'route.diagnostics', requiresAuth: true }
   },
   {
     path: '/plugins',
     name: 'Plugins',
     component: () => import('@/views/Plugins.vue'),
-    meta: { titleKey: 'route.plugins' }
+    meta: { titleKey: 'route.plugins', requiresAuth: true }
   },
   {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/Settings.vue'),
-    meta: { titleKey: 'route.settings' }
+    meta: { titleKey: 'route.settings', requiresAuth: true }
   }
 ]
 
@@ -81,15 +91,30 @@ router.beforeEach((to, _from, next) => {
   next()
 })
 
-// 路由守卫 - 权限检查（预留）
-router.beforeEach((_to, _from, next) => {
-  // TODO: 实现权限检查逻辑
-  // const token = localStorage.getItem('token')
-  // if (!token && to.path !== '/login') {
-  //   next('/login')
-  // } else {
-  //   next()
-  // }
+// 路由守卫 - 权限检查
+router.beforeEach(async (to, _from, next) => {
+  // 动态导入用户store以避免循环依赖
+  const { useUserStore } = await import('@/stores/user')
+  const userStore = useUserStore()
+  
+  const requiresAuth = to.meta.requiresAuth !== false // 默认需要认证
+  const isLoginPage = to.path === '/login'
+  
+  // 如果是登录页面且已登录，重定向到首页
+  if (isLoginPage && userStore.isLoggedIn) {
+    next('/dashboard')
+    return
+  }
+  
+  // 如果需要认证但未登录，重定向到登录页
+  if (requiresAuth && !userStore.isLoggedIn) {
+    next({
+      path: '/login',
+      query: { redirect: to.fullPath }
+    })
+    return
+  }
+  
   next()
 })
 

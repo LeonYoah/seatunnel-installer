@@ -36,10 +36,27 @@ func NewServerCmd() *cobra.Command {
 func NewMigrateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
-		Short: "Run database migrations",
+		Short: "Run database migrations and create default admin user",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("Running database migrations...")
-			// TODO: Implement migrations
+
+			// 创建服务器实例以初始化数据库连接
+			srv, err := server.NewServer(8080)
+			if err != nil {
+				return fmt.Errorf("初始化服务器失败: %w", err)
+			}
+
+			// 创建默认管理员用户
+			if err := srv.CreateDefaultAdminUser(); err != nil {
+				return fmt.Errorf("创建默认管理员用户失败: %w", err)
+			}
+
+			fmt.Println("✅ 数据库迁移完成")
+			fmt.Println("✅ 默认管理员用户已创建")
+			fmt.Println("   用户名: admin")
+			fmt.Println("   密码: admin123")
+			fmt.Println("   请登录后立即修改密码！")
+
 			return nil
 		},
 	}

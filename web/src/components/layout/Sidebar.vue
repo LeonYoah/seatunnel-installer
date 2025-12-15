@@ -74,9 +74,9 @@ const handleMenuSelect = (index: string) => {
   router.push(index)
 }
 
-const toggleCollapse = () => {
-  isCollapse.value = !isCollapse.value
-}
+// const toggleCollapse = () => {
+//   isCollapse.value = !isCollapse.value
+// }
 </script>
 
 <style scoped>

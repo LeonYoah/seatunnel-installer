@@ -15,7 +15,7 @@ const app = createApp(App)
 
 // 开发环境启用 Vue DevTools
 if (import.meta.env.DEV) {
-  app.config.devtools = true
+  // app.config.devtools = true
   app.config.performance = true
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/seatunnel/enterprise-platform/internal/controlplane/auth"
 	"github.com/seatunnel/enterprise-platform/internal/controlplane/database"
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/models"
 	"github.com/seatunnel/enterprise-platform/internal/controlplane/repository"
 	"github.com/seatunnel/enterprise-platform/internal/controlplane/router"
 	"github.com/seatunnel/enterprise-platform/pkg/config"
@@ -182,4 +183,80 @@ func (s *Server) Stop() error {
 // GetLogger 获取日志器
 func (s *Server) GetLogger() *zap.Logger {
 	return s.logger
+}
+
+// CreateDefaultAdminUser 创建默认管理员用户
+func (s *Server) CreateDefaultAdminUser() error {
+	ctx := context.Background()
+
+	// 检查是否已存在admin用户
+	existingUser, err := s.repoManager.User().GetByUsername(ctx, "admin")
+	if err == nil && existingUser != nil {
+		s.logger.Info("默认管理员用户已存在，跳过创建")
+		return nil
+	}
+
+	// 创建默认租户（如果不存在）
+	var defaultTenant *models.Tenant
+	tenants, _, err := s.repoManager.Tenant().List(ctx, 0, 1)
+	if err != nil || len(tenants) == 0 {
+		defaultTenant = &models.Tenant{
+			Name:        "默认租户",
+			Description: "系统默认租户",
+		}
+		if err := s.repoManager.Tenant().Create(ctx, defaultTenant); err != nil {
+			return fmt.Errorf("创建默认租户失败: %w", err)
+		}
+		s.logger.Info("创建默认租户成功", zap.String("tenant_id", defaultTenant.ID))
+	} else {
+		defaultTenant = tenants[0]
+	}
+
+	// 创建默认工作空间（如果不存在）
+	var defaultWorkspace *models.Workspace
+	workspaces, _, err := s.repoManager.Workspace().GetByTenantID(ctx, defaultTenant.ID, 0, 1)
+	if err != nil || len(workspaces) == 0 {
+		defaultWorkspace = &models.Workspace{
+			TenantID: defaultTenant.ID,
+			Name:     "默认工作空间",
+		}
+		if err := s.repoManager.Workspace().Create(ctx, defaultWorkspace); err != nil {
+			return fmt.Errorf("创建默认工作空间失败: %w", err)
+		}
+		s.logger.Info("创建默认工作空间成功", zap.String("workspace_id", defaultWorkspace.ID))
+	} else {
+		defaultWorkspace = workspaces[0]
+	}
+
+	// 获取owner角色
+	ownerRole, err := s.repoManager.Role().GetByName(ctx, "", "owner")
+	if err != nil {
+		return fmt.Errorf("获取owner角色失败: %w", err)
+	}
+
+	// 创建默认管理员用户
+	adminUser := &models.User{
+		TenantID:    defaultTenant.ID,
+		WorkspaceID: defaultWorkspace.ID,
+		Username:    "admin",
+		Email:       "admin@seatunnel.local",
+		Password:    "admin123", // 明文密码，会在BeforeCreate中自动加密
+		Status:      "active",
+	}
+
+	if err := s.repoManager.User().Create(ctx, adminUser); err != nil {
+		return fmt.Errorf("创建管理员用户失败: %w", err)
+	}
+
+	// 为管理员用户分配owner角色
+	if err := s.repoManager.User().AssignRole(ctx, adminUser.ID, ownerRole.ID); err != nil {
+		return fmt.Errorf("分配角色失败: %w", err)
+	}
+
+	s.logger.Info("创建默认管理员用户成功",
+		zap.String("user_id", adminUser.ID),
+		zap.String("username", adminUser.Username),
+	)
+
+	return nil
 }

@@ -3,7 +3,9 @@
 -->
 <template>
   <el-config-provider :locale="elLocale">
-    <MainLayout />
+    <!-- 根据路由meta决定是否显示主布局 -->
+    <MainLayout v-if="!$route.meta.hideLayout" />
+    <router-view v-else />
   </el-config-provider>
 </template>
 
@@ -13,8 +15,8 @@ import { onMounted, computed } from 'vue'
 import { useUserStore } from './stores/user'
 import { useThemeStore } from './stores/theme'
 import { useI18n } from 'vue-i18n'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
-import en from 'element-plus/dist/locale/en.mjs'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import en from 'element-plus/es/locale/lang/en'
 
 const userStore = useUserStore()
 const themeStore = useThemeStore()

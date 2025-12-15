@@ -37,6 +37,8 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+data/*
+
 
 # Configuration (sensitive)
 config.local.yaml

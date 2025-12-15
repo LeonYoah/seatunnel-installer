@@ -64,10 +64,15 @@ const handleProfile = () => {
   ElMessage.info(t('tips.profileWip'))
 }
 
-const handleLogout = () => {
-  userStore.logout()
-  ElMessage.success(t('tips.loggedOut'))
-  router.push('/login')
+const handleLogout = async () => {
+  try {
+    await userStore.logout()
+    ElMessage.success(t('tips.loggedOut'))
+    router.push('/login')
+  } catch (error) {
+    console.error('登出失败:', error)
+    ElMessage.error('登出失败')
+  }
 }
 </script>
 

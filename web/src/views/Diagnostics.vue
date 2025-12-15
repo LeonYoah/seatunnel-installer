@@ -56,11 +56,12 @@
               </div>
               <div class="fault-pattern">{{ t('diagnostics.fault.pattern') }}：{{ fault.pattern }}</div>
               <div class="fault-actions">
-                <el-button size="small" @click="handleViewSolution(fault)">{{ t('diagnostics.fault.view') }}</el-button>
+                <el-button size="small" text @click="handleViewSolution(fault)">{{ t('diagnostics.fault.view') }}</el-button>
                 <el-button
                   v-if="fault.fixable"
                   size="small"
                   type="primary"
+                  text
                   @click="handleAutoFix(fault)"
                 >
                   {{ t('diagnostics.fault.autoFix') }}
@@ -109,7 +110,7 @@
         <el-table-column prop="createdAt" :label="t('diagnostics.history.createdAt')" width="180" />
         <el-table-column :label="t('common.actions')" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" :icon="Download" @click="handleDownload(row)">
+            <el-button size="small" :icon="Download" text @click="handleDownload(row)">
               {{ t('common.download') }}
             </el-button>
             <el-button size="small" type="danger" text @click="handleDeleteDiag(row)">

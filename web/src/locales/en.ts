@@ -292,6 +292,11 @@ export default {
       last24h: 'Past 24 hours',
       placeholder: 'Chart placeholder — integrate ECharts later'
     },
+    chart: {
+      success: 'Successful Tasks',
+      failed: 'Failed Tasks',
+      taskCount: 'Task Count'
+    },
     alerts: {
       title: 'Recent Alerts',
       empty: 'No alerts'
@@ -382,6 +387,28 @@ export default {
   },
   footer: {
     copyright: 'SeaTunnel Console | Apache SeaTunnel'
+  },
+  login: {
+    form: {
+      username: 'Username',
+      password: 'Password',
+      rememberMe: 'Remember me',
+      login: 'Sign In',
+      loggingIn: 'Signing in...'
+    },
+    validation: {
+      usernameRequired: 'Please enter username',
+      usernameLength: 'Username length should be between 2 and 50 characters',
+      passwordRequired: 'Please enter password',
+      passwordLength: 'Password length should be at least 6 characters'
+    },
+    messages: {
+      loginSuccess: 'Login successful',
+      loginFailed: 'Login failed, please check username and password',
+      logoutSuccess: 'Signed out successfully',
+      tokenExpired: 'Login expired, please sign in again',
+      sessionExpired: 'Session expired, please sign in again'
+    }
   },
   tips: {
     profileWip: 'Profile page is under development',
