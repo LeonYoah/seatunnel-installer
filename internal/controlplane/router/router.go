@@ -68,6 +68,9 @@ func (r *Router) SetupRoutes() {
 
 // setupV1Routes 设置v1版本的路由
 func (r *Router) setupV1Routes(v1 *gin.RouterGroup) {
+	// 添加审计中间件到所有v1路由
+	v1.Use(middleware.AuditMiddleware(r.repoManager, r.logger))
+
 	// 认证相关路由
 	auth := v1.Group("/auth")
 	{
@@ -270,11 +273,21 @@ func (r *Router) setupPluginRoutes(plugins *gin.RouterGroup) {
 
 // setupAuditRoutes 设置审计日志路由
 func (r *Router) setupAuditRoutes(audit *gin.RouterGroup) {
-	// TODO: 实现审计日志路由
-	audit.GET("", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "获取审计日志接口待实现"})
-	})
-	audit.GET("/:id", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "获取审计日志详情接口待实现"})
-	})
+	// 创建审计日志处理器
+	auditHandler := handlers.NewAuditHandler(r.repoManager)
+
+	// 需要认证和权限的路由
+	authenticated := audit.Group("")
+	authenticated.Use(middleware.AuthMiddleware(r.jwtService, r.repoManager))
+	authenticated.Use(middleware.RequirePermission("audit", "read"))
+	{
+		// 获取审计日志列表（支持多种筛选条件）
+		authenticated.GET("/logs", auditHandler.GetAuditLogs)
+
+		// 获取指定用户的审计日志
+		authenticated.GET("/users/:user_id/logs", auditHandler.GetAuditLogsByUser)
+
+		// 获取指定资源的审计日志
+		authenticated.GET("/resources/:resource/logs", auditHandler.GetAuditLogsByResource)
+	}
 }

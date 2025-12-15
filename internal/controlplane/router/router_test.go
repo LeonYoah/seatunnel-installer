@@ -4,7 +4,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/auth"
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/database"
+	"github.com/seatunnel/enterprise-platform/internal/controlplane/repository"
 	"github.com/seatunnel/enterprise-platform/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,7 +19,22 @@ func TestNewRouter(t *testing.T) {
 	assert.NoError(t, err)
 
 	log := logger.Get()
-	router := NewRouter(log)
+
+	// 创建测试数据库
+	dbConfig := &database.Config{
+		Type:       "sqlite",
+		SQLiteFile: ":memory:",
+	}
+	db, err := database.NewConnection(dbConfig)
+	assert.NoError(t, err)
+
+	// 创建Repository管理器
+	repoManager := repository.NewRepositoryManager(db.DB())
+
+	// 创建JWT服务
+	jwtService := auth.NewJWTService("test-secret", time.Hour, time.Hour*24)
+
+	router := NewRouter(log, repoManager, jwtService)
 
 	assert.NotNil(t, router)
 	assert.NotNil(t, router.engine)
@@ -28,7 +47,22 @@ func TestHealthEndpoint(t *testing.T) {
 	assert.NoError(t, err)
 
 	log := logger.Get()
-	router := NewRouter(log)
+
+	// 创建测试数据库
+	dbConfig := &database.Config{
+		Type:       "sqlite",
+		SQLiteFile: ":memory:",
+	}
+	db, err := database.NewConnection(dbConfig)
+	assert.NoError(t, err)
+
+	// 创建Repository管理器
+	repoManager := repository.NewRepositoryManager(db.DB())
+
+	// 创建JWT服务
+	jwtService := auth.NewJWTService("test-secret", time.Hour, time.Hour*24)
+
+	router := NewRouter(log, repoManager, jwtService)
 	router.SetupRoutes()
 
 	w := httptest.NewRecorder()
@@ -45,7 +79,22 @@ func TestAPIV1Routes(t *testing.T) {
 	assert.NoError(t, err)
 
 	log := logger.Get()
-	router := NewRouter(log)
+
+	// 创建测试数据库
+	dbConfig := &database.Config{
+		Type:       "sqlite",
+		SQLiteFile: ":memory:",
+	}
+	db, err := database.NewConnection(dbConfig)
+	assert.NoError(t, err)
+
+	// 创建Repository管理器
+	repoManager := repository.NewRepositoryManager(db.DB())
+
+	// 创建JWT服务
+	jwtService := auth.NewJWTService("test-secret", time.Hour, time.Hour*24)
+
+	router := NewRouter(log, repoManager, jwtService)
 	router.SetupRoutes()
 
 	// 测试主机管理路由
@@ -63,8 +112,8 @@ func TestAPIV1Routes(t *testing.T) {
 		{"POST", "/api/v1/clusters", http.StatusOK},
 		{"GET", "/api/v1/tasks", http.StatusOK},
 		{"POST", "/api/v1/tasks", http.StatusOK},
-		{"GET", "/api/v1/auth/login", http.StatusNotFound}, // POST only
-		{"POST", "/api/v1/auth/login", http.StatusOK},
+		{"GET", "/api/v1/auth/login", http.StatusNotFound},    // POST only
+		{"POST", "/api/v1/auth/login", http.StatusBadRequest}, // 需要请求体
 		{"GET", "/api/v1/agent/install.sh", http.StatusOK},
 		{"GET", "/api/v1/plugins", http.StatusOK},
 	}
@@ -84,7 +133,22 @@ func TestCORSHeaders(t *testing.T) {
 	assert.NoError(t, err)
 
 	log := logger.Get()
-	router := NewRouter(log)
+
+	// 创建测试数据库
+	dbConfig := &database.Config{
+		Type:       "sqlite",
+		SQLiteFile: ":memory:",
+	}
+	db, err := database.NewConnection(dbConfig)
+	assert.NoError(t, err)
+
+	// 创建Repository管理器
+	repoManager := repository.NewRepositoryManager(db.DB())
+
+	// 创建JWT服务
+	jwtService := auth.NewJWTService("test-secret", time.Hour, time.Hour*24)
+
+	router := NewRouter(log, repoManager, jwtService)
 	router.SetupRoutes()
 
 	w := httptest.NewRecorder()
